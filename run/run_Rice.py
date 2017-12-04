@@ -1,0 +1,1 @@
+#run algorithms on Rice
