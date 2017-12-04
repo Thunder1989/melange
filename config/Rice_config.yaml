@@ -1,0 +1,7 @@
+attribute: 'type'
+algorithm: 'acitive_learning'
+metric: 'accuracy'
+
+cvFold: 10
+iterNum: 10
+clusterNum: 28
