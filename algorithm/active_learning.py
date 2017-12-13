@@ -48,6 +48,7 @@ def get_name_features(names):
 class active_learning:
 
     def __init__(self, fold, rounds, fn, label):
+
         self.fold = fold
         self.rounds = rounds
         self.acc_sum = [[] for i in xrange(self.rounds)] #acc per iter for each fold
@@ -69,10 +70,10 @@ class active_learning:
 
         for train, test in kf:
 
-            self.fn_train = self.fn[train]
+            fn_train = self.fn[train]
             c = KMeans(init='k-means++', n_clusters=28, n_init=10)
-            c.fit(self.fn_train)
-            dist = np.sort(c.transform(self.fn_train))
+            c.fit(fn_train)
+            dist = np.sort(c.transform(fn_train))
 
             ex = dd(list) #example id, distance to centroid
             self.ex_id = dd(list) #example id for each C
@@ -147,37 +148,37 @@ class active_learning:
                 else:
                     self.ex_id[key] = tmp
 
-                self.fn_test = self.fn[test]
-                self.label_test = self.label[test]
+                fn_test = self.fn[test]
+                label_test = self.label[test]
                 if not p_idx:
-                    self.fn_train = self.fn[km_idx]
-                    self.label_train = self.label[km_idx]
+                    fn_train = self.fn[km_idx]
+                    label_train = self.label[km_idx]
                 else:
-                    self.fn_train = self.fn[np.hstack((km_idx, p_idx))]
-                    self.label_train = np.hstack((self.label[km_idx], p_label))
+                    fn_train = self.fn[np.hstack((km_idx, p_idx))]
+                    label_train = np.hstack((self.label[km_idx], p_label))
 
-                self.clf.fit(self.fn_train, self.label_train)
-                self.fn_preds = self.clf.predict(self.fn_test)
+                self.clf.fit(fn_train, label_train)
+                fn_preds = self.clf.predict(fn_test)
 
-                acc = accuracy_score(self.label_test, self.fn_preds)
+                acc = accuracy_score(label_test, fn_preds)
                 self.acc_sum[ctr-3].append(acc)
 
 
             cl_id = [] #track cluster id on each iter
             ex_al = [] #track ex added on each iter
-            self.fn_test = self.fn[test]
-            self.label_test = self.label[test]
+            fn_test = self.fn[test]
+            label_test = self.label[test]
             for rr in range(ctr, rounds):
 
                 if not p_idx:
-                    self.fn_train = self.fn[km_idx]
-                    self.label_train = self.label[km_idx]
+                    fn_train = self.fn[km_idx]
+                    label_train = self.label[km_idx]
                 else:
-                    self.fn_train = self.fn[np.hstack((km_idx, p_idx))]
-                    self.label_train = np.hstack((self.label[km_idx], p_label))
+                    fn_train = self.fn[np.hstack((km_idx, p_idx))]
+                    label_train = np.hstack((self.label[km_idx], p_label))
 
-                self.clf.fit(self.fn_train, self.label_train)
-                self.fn_preds = self.clf.predict(self.fn_test)
+                self.clf.fit(fn_train, label_train)
+                fn_preds = self.clf.predict(fn_test)
 
                 sub_pred = dd(list) #Mn predicted self.labels for each cluster
                 for k,v in self.ex_id.items():
@@ -262,15 +263,15 @@ class active_learning:
                         break
 
                 if not p_idx:
-                    self.fn_train = self.fn[km_idx]
-                    self.label_train = self.label[km_idx]
+                    fn_train = self.fn[km_idx]
+                    label_train = self.label[km_idx]
                 else:
-                    self.fn_train = self.fn[np.hstack((km_idx, p_idx))]
-                    self.label_train = np.hstack((self.label[km_idx], p_label))
+                    fn_train = self.fn[np.hstack((km_idx, p_idx))]
+                    label_train = np.hstack((self.label[km_idx], p_label))
 
-                self.clf.fit(self.fn_train, self.label_train)
-                self.fn_preds = self.clf.predict(self.fn_test)
-                acc = accuracy_score(self.label_test, self.fn_preds)
+                self.clf.fit(fn_train, label_train)
+                fn_preds = self.clf.predict(fn_test)
+                acc = accuracy_score(label_test, fn_preds)
                 self.acc_sum[rr].append(acc)
 
             print '# of p self.label', len(p_label)
@@ -284,11 +285,11 @@ class active_learning:
             print '----------------------------------------------------'
             print '----------------------------------------------------'
 
-        print 'class count of clf training ex:', ct(self.label_train)
+        print 'class count of clf training ex:', ct(label_train)
         print 'average acc:', [np.mean(i) for i in self.acc_sum]
         print 'average p self.label acc:', np.mean(p_acc)
 
-        cm_ = CM(self.label_test, self.fn_preds)
+        cm_ = CM(label_test, fn_preds)
         cm = normalize(cm_.astype(np.float), axis=1, norm='l1')
         fig = pl.figure()
         ax = fig.add_subplot(111)
@@ -300,7 +301,7 @@ class active_learning:
                             horizontalalignment='center',
                             verticalalignment='center',
                             fontsize=10)
-        cm_cls =np.unique(np.hstack((self.label_test,self.fn_preds)))
+        cm_cls =np.unique(np.hstack((label_test,fn_preds)))
         cls = []
         for c in cm_cls:
             cls.append(mapping[c])
