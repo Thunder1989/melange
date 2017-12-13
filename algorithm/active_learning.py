@@ -62,6 +62,17 @@ class active_learning:
         self.clf = LinearSVC()
         self.ex_id = dd(list)
 
+
+    def update_tao(self, labeled_set):
+
+        dist_inter = []
+        pair = list(itertools.combinations(labeled_set,2))
+        for p in pair:
+            d = np.linalg.norm(self.fn[p[0]]-self.fn[p[1]])
+            if self.label[p[0]] != self.label[p[1]]:
+                dist_inter.append(d)
+        self.tao = self.alpha_*min(dist_inter)/2 #set tao be the min(inter-class pair dist)/2
+
     def run_CV(self):
 
         kf = KFold(len(self.label), n_folds=self.fold, shuffle=True)
@@ -102,13 +113,7 @@ class active_learning:
                 if ctr<3:
                     continue
 
-                dist_inter = []
-                pair = list(itertools.combinations(km_idx,2))
-                for p in pair:
-                    d = np.linalg.norm(self.fn[p[0]]-self.fn[p[1]])
-                    if self.label[p[0]] != self.label[p[1]]:
-                        dist_inter.append(d)
-                self.tao = self.alpha_ * min(dist_inter)/2
+                self.update_tao(km_idx)
 
                 #exclude exs
                 tmp = []
@@ -221,13 +226,7 @@ class active_learning:
                         km_idx.append(idx)
 
                         #update tao then remove ex<tao
-                        dist_inter = []
-                        pair = list(itertools.combinations(km_idx,2))
-                        for p in pair:
-                            d = np.linalg.norm(self.fn[p[0]]-self.fn[p[1]])
-                            if self.label[p[0]] != self.label[p[1]]:
-                                dist_inter.append(d)
-                        self.tao = self.alpha_*min(dist_inter)/2 #set tao be the min(inter-class pair dist)/2
+                        self.update_tao(km_idx)
 
                         tmp = []
                         #re-visit exs removed on previous itr with the new tao
@@ -277,10 +276,10 @@ class active_learning:
             print '# of p self.label', len(p_label)
             print cl_id
             if not p_label:
-                print 'psudo self.label acc', 0
+                print 'psudo label acc', 0
                 p_acc.append(0)
             else:
-                print 'psudo self.label acc', sum(self.label[p_idx]==p_label)/float(len(p_label))
+                print 'psudo label acc', sum(self.label[p_idx]==p_label)/float(len(p_label))
                 p_acc.append(sum(self.label[p_idx]==p_label)/float(len(p_label)))
             print '----------------------------------------------------'
             print '----------------------------------------------------'
@@ -306,9 +305,9 @@ class active_learning:
         for c in cm_cls:
             cls.append(mapping[c])
         pl.yticks(range(len(cls)), cls)
-        pl.yself.label('True self.label')
+        pl.yself.label('True label')
         pl.xticks(range(len(cls)), cls)
-        pl.xself.label('Predicted self.label')
+        pl.xself.label('Predicted label')
         pl.title('Mn Confusion matrix (%.3f)'%acc)
         pl.show()
 
