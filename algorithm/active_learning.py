@@ -99,6 +99,7 @@ class active_learning:
         p_idx = idx_tmp
         p_label = label_tmp
 
+        #added exs to pseudo set
         for ex in self.ex_id[cluster_id]:
 
             if ex == new_ex_id:
@@ -118,6 +119,7 @@ class active_learning:
             self.ex_id[cluster_id] = tmp
 
         return p_idx, p_label, p_dist
+
 
     def get_pred_acc(self, fn_test, label_test, labeled_set, pseudo_set, pseudo_label):
 
@@ -184,7 +186,7 @@ class active_learning:
                 p_idx, p_label, p_dist = self.update_pseudo_set(idx, key, p_idx, p_label, p_dist)
 
                 acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
-                self.acc_sum[ctr-3].append(acc)
+                self.acc_sum[ctr-1].append(acc)
 
 
             cl_id = [] #track cluster id on each iter
@@ -243,7 +245,6 @@ class active_learning:
                         idx = v[0][0]
                         km_idx.append(idx)
 
-                        #update tao then remove ex<tao
                         self.update_tao(km_idx)
 
                         p_idx, p_label, p_dist = self.update_pseudo_set(idx, key, p_idx, p_label, p_dist)
@@ -252,22 +253,28 @@ class active_learning:
                         break
 
                 acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
-                self.acc_sum[rr].append(acc)
+                if np.isnan(acc):
+                    print km_idx
+                    print p_idx
+                    print p_label
+                else:
+                    self.acc_sum[rr].append(acc)
 
-            print '# of p self.label', len(p_label)
+            print '# of p label', len(p_label)
             print cl_id
             if not p_label:
-                print 'psudo label acc', 0
+                print 'p label acc', 0
                 p_acc.append(0)
             else:
-                print 'psudo label acc', sum(self.label[p_idx]==p_label)/float(len(p_label))
+                print 'p label acc', sum(self.label[p_idx]==p_label)/float(len(p_label))
                 p_acc.append(sum(self.label[p_idx]==p_label)/float(len(p_label)))
             print '----------------------------------------------------'
             print '----------------------------------------------------'
 
         print 'class count of clf training ex:', ct(label_train)
+        self.acc_sum = [i for i in self.acc_sum if i]
         print 'average acc:', [np.mean(i) for i in self.acc_sum]
-        print 'average p self.label acc:', np.mean(p_acc)
+        print 'average p label acc:', np.mean(p_acc)
 
         cm_ = CM(label_test, fn_preds)
         cm = normalize(cm_.astype(np.float), axis=1, norm='l1')
@@ -297,7 +304,7 @@ if __name__ == "__main__":
     raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('rice_pt_soda').readlines()]
     tmp = np.genfromtxt('rice_hour_soda', delimiter=',')
     label = tmp[:,-1]
-    print 'class count of true self.labels of all ex:\n', ct(label)
+    print 'class count of true labels of all ex:\n', ct(label)
 
     mapping = {1:'co2',2:'humidity',4:'rmt',5:'status',6:'stpt',7:'flow',8:'HW sup',9:'HW ret',10:'CW sup',11:'CW ret',12:'SAT',13:'RAT',17:'MAT',18:'C enter',19:'C leave',21:'occu'}
 
