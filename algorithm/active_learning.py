@@ -67,11 +67,74 @@ class active_learning:
 
         dist_inter = []
         pair = list(itertools.combinations(labeled_set,2))
+
         for p in pair:
+
             d = np.linalg.norm(self.fn[p[0]]-self.fn[p[1]])
             if self.label[p[0]] != self.label[p[1]]:
                 dist_inter.append(d)
-        self.tao = self.alpha_*min(dist_inter)/2 #set tao be the min(inter-class pair dist)/2
+
+        try:
+            self.tao = self.alpha_*min(dist_inter)/2 #set tao be the min(inter-class pair dist)/2
+        except Exception as e:
+            self.tao = self.tao
+
+
+    def update_pseudo_set(self, new_ex_id, cluster_id, p_idx, p_label, p_dist):
+
+        tmp = []
+        idx_tmp=[]
+        label_tmp=[]
+
+        #re-visit exs removed on previous itr with the new tao
+        for i,j in zip(p_idx,p_label):
+
+            if p_dist[i] < self.tao:
+                idx_tmp.append(i)
+                label_tmp.append(j)
+            else:
+                p_dist.pop(i)
+                tmp.append(i)
+
+        p_idx = idx_tmp
+        p_label = label_tmp
+
+        for ex in self.ex_id[cluster_id]:
+
+            if ex == new_ex_id:
+                continue
+            d = np.linalg.norm(self.fn[ex]-self.fn[new_ex_id])
+
+            if d < self.tao:
+                p_dist[ex] = d
+                p_idx.append(ex)
+                p_label.append(self.label[new_ex_id])
+            else:
+                tmp.append(ex)
+
+        if not tmp:
+            self.ex_id.pop(cluster_id)
+        else:
+            self.ex_id[cluster_id] = tmp
+
+        return p_idx, p_label, p_dist
+
+    def get_pred_acc(self, fn_test, label_test, labeled_set, pseudo_set, pseudo_label):
+
+        if not pseudo_set:
+            fn_train = self.fn[labeled_set]
+            label_train = self.label[labeled_set]
+        else:
+            fn_train = self.fn[np.hstack((labeled_set, pseudo_set))]
+            label_train = np.hstack((self.label[labeled_set], pseudo_label))
+
+        self.clf.fit(fn_train, label_train)
+        fn_preds = self.clf.predict(fn_test)
+
+        acc = accuracy_score(label_test, fn_preds)
+
+        return acc
+
 
     def run_CV(self):
 
@@ -80,6 +143,9 @@ class active_learning:
         self.acc_sum = [[] for i in xrange(rounds)] #acc per iter for each fold
 
         for train, test in kf:
+
+            fn_test = self.fn[test]
+            label_test = self.label[test]
 
             fn_train = self.fn[train]
             c = KMeans(init='k-means++', n_clusters=28, n_init=10)
@@ -115,57 +181,9 @@ class active_learning:
 
                 self.update_tao(km_idx)
 
-                #exclude exs
-                tmp = []
-                #re-visit exs removed on previous itr with the new tao
-                idx_tmp=[]
-                label_tmp=[]
-                for i,j in zip(p_idx,p_label):
-                    if p_dist[i]<self.tao:
-                        idx_tmp.append(i)
-                        label_tmp.append(j)
-                    else:
-                        p_dist.pop(i)
-                        tmp.append(i)
-                p_idx = idx_tmp
-                p_label = label_tmp
+                p_idx, p_label, p_dist = self.update_pseudo_set(idx, key, p_idx, p_label, p_dist)
 
-                if ctr==3:
-                    #make up for p_self.labels for the first 2 itrs
-                    #TBD
-                    pass
-
-                for e in self.ex_id[key]:
-
-                    if e == idx:
-                        continue
-
-                    d = np.linalg.norm(self.fn[e]-self.fn[idx])
-                    if d < self.tao:
-                        p_dist[e] = d
-                        p_idx.append(e)
-                        p_label.append(self.label[idx])
-                    else:
-                        tmp.append(e)
-
-                if not tmp:
-                    self.ex_id.pop(key)
-                else:
-                    self.ex_id[key] = tmp
-
-                fn_test = self.fn[test]
-                label_test = self.label[test]
-                if not p_idx:
-                    fn_train = self.fn[km_idx]
-                    label_train = self.label[km_idx]
-                else:
-                    fn_train = self.fn[np.hstack((km_idx, p_idx))]
-                    label_train = np.hstack((self.label[km_idx], p_label))
-
-                self.clf.fit(fn_train, label_train)
-                fn_preds = self.clf.predict(fn_test)
-
-                acc = accuracy_score(label_test, fn_preds)
+                acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
                 self.acc_sum[ctr-3].append(acc)
 
 
@@ -203,8 +221,8 @@ class active_learning:
                 idx = rank[0][0] #pick the 1st cluster on the rank
                 cl_id.append(idx) #track cluster id on each iteration
 
-                cc = idx #id of the cluster picked by H
-                c_id = self.ex_id[cc] #examples in the cluster picked
+                key = idx #id of the cluster picked by H
+                c_id = self.ex_id[key] #examples in the cluster picked
                 sub_label = sub_pred[idx] #used when choosing cluster by H
                 sub_fn = self.fn[c_id]
 
@@ -228,49 +246,12 @@ class active_learning:
                         #update tao then remove ex<tao
                         self.update_tao(km_idx)
 
-                        tmp = []
-                        #re-visit exs removed on previous itr with the new tao
-                        idx_tmp=[]
-                        label_tmp=[]
-                        for i,j in zip(p_idx,p_label):
-                            if p_dist[i] < self.tao:
-                                idx_tmp.append(i)
-                                label_tmp.append(j)
-                            else:
-                                p_dist.pop(i)
-                                tmp.append(i)
-                        p_idx = idx_tmp
-                        p_label = label_tmp
+                        p_idx, p_label, p_dist = self.update_pseudo_set(idx, key, p_idx, p_label, p_dist)
 
-                        for e in self.ex_id[cc]:
-                            if e == idx:
-                                continue
-                            d = np.linalg.norm(self.fn[e]-self.fn[idx])
-                            if d < self.tao:
-                                p_dist[e] = d
-                                p_idx.append(e)
-                                p_label.append(self.label[idx])
-                            else:
-                                tmp.append(e)
-
-                        if not tmp:
-                            self.ex_id.pop(cc)
-                        else:
-                            self.ex_id[cc] = tmp
-
-                        ex_al.append([rr,cc,v[0][-2],self.label[idx],raw_pt[idx]])
+                        ex_al.append([rr,key,v[0][-2],self.label[idx],raw_pt[idx]])
                         break
 
-                if not p_idx:
-                    fn_train = self.fn[km_idx]
-                    label_train = self.label[km_idx]
-                else:
-                    fn_train = self.fn[np.hstack((km_idx, p_idx))]
-                    label_train = np.hstack((self.label[km_idx], p_label))
-
-                self.clf.fit(fn_train, label_train)
-                fn_preds = self.clf.predict(fn_test)
-                acc = accuracy_score(label_test, fn_preds)
+                acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
                 self.acc_sum[rr].append(acc)
 
             print '# of p self.label', len(p_label)
@@ -305,9 +286,9 @@ class active_learning:
         for c in cm_cls:
             cls.append(mapping[c])
         pl.yticks(range(len(cls)), cls)
-        pl.yself.label('True label')
+        pl.ylabel('True label')
         pl.xticks(range(len(cls)), cls)
-        pl.xself.label('Predicted label')
+        pl.xlabel('Predicted label')
         pl.title('Mn Confusion matrix (%.3f)'%acc)
         pl.show()
 
