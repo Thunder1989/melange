@@ -253,12 +253,7 @@ class active_learning:
                         break
 
                 acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
-                if np.isnan(acc):
-                    print km_idx
-                    print p_idx
-                    print p_label
-                else:
-                    self.acc_sum[rr].append(acc)
+                self.acc_sum[rr].append(acc)
 
             print '# of p label', len(p_label)
             print cl_id
