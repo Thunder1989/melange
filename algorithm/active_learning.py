@@ -138,11 +138,42 @@ class active_learning:
         return acc
 
 
+    def plot_confusion_matrix(self, label_test, fn_test):
+
+        fn_preds = self.clf.predict(fn_test)
+        acc = accuracy_score(label_test, fn_preds)
+
+        cm_ = CM(label_test, fn_preds)
+        cm = normalize(cm_.astype(np.float), axis=1, norm='l1')
+
+        fig = pl.figure()
+        ax = fig.add_subplot(111)
+        cax = ax.matshow(cm)
+        fig.colorbar(cax)
+        for x in xrange(len(cm)):
+            for y in xrange(len(cm)):
+                ax.annotate(str("%.3f(%d)"%(cm[x][y], cm_[x][y])), xy=(y,x),
+                            horizontalalignment='center',
+                            verticalalignment='center',
+                            fontsize=10)
+        cm_cls =np.unique(np.hstack((label_test,fn_preds)))
+
+        cls = []
+        for c in cm_cls:
+            cls.append(mapping[c])
+        pl.yticks(range(len(cls)), cls)
+        pl.ylabel('True label')
+        pl.xticks(range(len(cls)), cls)
+        pl.xlabel('Predicted label')
+        pl.title('Mn Confusion matrix (%.3f)'%acc)
+
+        pl.show()
+
+
     def run_CV(self):
 
         kf = KFold(len(self.label), n_folds=self.fold, shuffle=True)
         p_acc = [] #pseudo self.label acc
-        self.acc_sum = [[] for i in xrange(rounds)] #acc per iter for each fold
 
         for train, test in kf:
 
@@ -271,28 +302,8 @@ class active_learning:
         print 'average acc:', [np.mean(i) for i in self.acc_sum]
         print 'average p label acc:', np.mean(p_acc)
 
-        cm_ = CM(label_test, fn_preds)
-        cm = normalize(cm_.astype(np.float), axis=1, norm='l1')
-        fig = pl.figure()
-        ax = fig.add_subplot(111)
-        cax = ax.matshow(cm)
-        fig.colorbar(cax)
-        for x in xrange(len(cm)):
-            for y in xrange(len(cm)):
-                ax.annotate(str("%.3f(%d)"%(cm[x][y], cm_[x][y])), xy=(y,x),
-                            horizontalalignment='center',
-                            verticalalignment='center',
-                            fontsize=10)
-        cm_cls =np.unique(np.hstack((label_test,fn_preds)))
-        cls = []
-        for c in cm_cls:
-            cls.append(mapping[c])
-        pl.yticks(range(len(cls)), cls)
-        pl.ylabel('True label')
-        pl.xticks(range(len(cls)), cls)
-        pl.xlabel('Predicted label')
-        pl.title('Mn Confusion matrix (%.3f)'%acc)
-        pl.show()
+        self.plot_confusion_matrix(label_test, fn_test)
+
 
 if __name__ == "__main__":
 
