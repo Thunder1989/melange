@@ -6,28 +6,17 @@ import re
 import itertools
 import pylab as pl
 
-from scikits.statsmodels.tools.tools import ECDF
-from scipy import stats
-from scipy.optimize import curve_fit
-from time import time
 from collections import defaultdict as dd
 from collections import Counter as ct
 
-from sklearn import tree
 from sklearn.cluster import KMeans
-from sklearn.cluster import AgglomerativeClustering as AC
-from sklearn.mixture import GMM
 from sklearn.mixture import DPGMM
-from sklearn.preprocessing import StandardScaler
-from sklearn.utils import shuffle
 
 from sklearn.feature_extraction.text import CountVectorizer as CV
 from sklearn.feature_extraction.text import TfidfVectorizer as TV
 from sklearn.cross_validation import StratifiedKFold
 from sklearn.cross_validation import KFold
-from sklearn.tree import DecisionTreeClassifier as DT
 from sklearn.ensemble import RandomForestClassifier as RFC
-from sklearn.svm import SVC
 from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix as CM
