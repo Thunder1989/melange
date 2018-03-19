@@ -110,6 +110,51 @@ class active_learning:
         return p_idx, p_label, p_dist
 
 
+    def select_example(self, labeled_set):
+
+        sub_pred = dd(list) #Mn predicted labels for each cluster
+        idx = 0
+
+        for k,v in self.ex_id.items():
+            sub_pred[k] = self.clf.predict(self.fn[v]) #predict labels for cluster learning set
+
+        #entropy-based cluster selection
+        rank = []
+        for k,v in sub_pred.items():
+            count = ct(v).values()
+            count[:] = [i/float(max(count)) for i in count]
+            H = np.sum(-p*math.log(p,2) for p in count if p!=0)
+            rank.append([k,len(v),H])
+        rank = sorted(rank, key=lambda x: x[-1], reverse=True)
+
+        if not rank:
+            raise ValueError('no clusters found in this iteration!')        
+
+        c_idx = rank[0][0] #pick the 1st cluster on the rank, ordered by label entropy
+        c_ex_id = self.ex_id[c_idx] #examples in the cluster picked
+        sub_label = sub_pred[c_idx] #used when choosing cluster by H
+        sub_fn = self.fn[c_ex_id]
+
+        #sub-cluster the cluster
+        c_ = KMeans(init='k-means++', n_clusters=len(np.unique(sub_label)), n_init=10)
+        c_.fit(sub_fn)
+        dist = np.sort(c_.transform(sub_fn))
+
+        ex_ = dd(list)
+        for i,j,k,l in zip(c_.labels_, c_ex_id, dist, sub_label):
+            ex_[i].append([j,l,k[0]])
+        for i,j in ex_.items(): #sort by ex. dist to the centroid for each C
+            ex_[i] = sorted(j, key=lambda x: x[-1])
+        for k,v in ex_.items():
+
+            if v[0][0] not in labeled_set: #find the first unlabeled ex
+
+                idx = v[0][0]
+                break
+
+        return idx, c_idx
+
+        
     def get_pred_acc(self, fn_test, label_test, labeled_set, pseudo_set, pseudo_label):
 
         if not pseudo_set:
@@ -193,8 +238,8 @@ class active_learning:
             ctr = 0
             for ee in ex_N:
 
-                key = ee[0] #cluster id
-                idx = ex[key][0][0] #id of ex closest to centroid of cluster
+                c_idx = ee[0] #cluster id
+                idx = ex[c_idx][0][0] #id of ex closest to centroid of cluster
                 km_idx.append(idx)
                 ctr+=1
 
@@ -203,7 +248,7 @@ class active_learning:
 
                 self.update_tao(km_idx)
 
-                p_idx, p_label, p_dist = self.update_pseudo_set(idx, key, p_idx, p_label, p_dist)
+                p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
 
                 acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
                 self.acc_sum[ctr-1].append(acc)
@@ -222,56 +267,16 @@ class active_learning:
                     fn_train = self.fn[np.hstack((km_idx, p_idx))]
                     label_train = np.hstack((self.label[km_idx], p_label))
 
-                self.clf.fit(fn_train, label_train)
-                fn_preds = self.clf.predict(fn_test)
+                self.clf.fit(fn_train, label_train)                        
 
-                sub_pred = dd(list) #Mn predicted self.labels for each cluster
-                for k,v in self.ex_id.items():
-                    sub_pred[k] = self.clf.predict(self.fn[v]) #predict self.labels for cluster learning set
+                idx, c_idx, = self.select_example(km_idx)                
+                km_idx.append(idx)
+                cl_id.append(c_idx) #track picked cluster id on each iteration
+                # ex_al.append([rr,key,v[0][-2],self.label[idx],raw_pt[idx]]) #for debugging
 
-                #entropy-based cluster selection
-                rank = []
-                for k,v in sub_pred.items():
-                    count = ct(v).values()
-                    count[:] = [i/float(max(count)) for i in count]
-                    H = np.sum(-p*math.log(p,2) for p in count if p!=0)
-                    rank.append([k,len(v),H])
-                rank = sorted(rank, key=lambda x: x[-1], reverse=True)
-
-                if not rank:
-                    break
-                idx = rank[0][0] #pick the 1st cluster on the rank
-                cl_id.append(idx) #track cluster id on each iteration
-
-                key = idx #id of the cluster picked by H
-                c_id = self.ex_id[key] #examples in the cluster picked
-                sub_label = sub_pred[idx] #used when choosing cluster by H
-                sub_fn = self.fn[c_id]
-
-                #sub-cluster the cluster
-                c_ = KMeans(init='k-means++', n_clusters=len(np.unique(sub_label)), n_init=10)
-                c_.fit(sub_fn)
-                dist = np.sort(c_.transform(sub_fn))
-
-                ex_ = dd(list)
-                for i,j,k,l in zip(c_.labels_, c_id, dist, sub_label):
-                    ex_[i].append([j,l,k[0]])
-                for i,j in ex_.items(): #sort by ex. dist to the centroid for each C
-                    ex_[i] = sorted(j, key=lambda x: x[-1])
-                for k,v in ex_.items():
-
-                    if v[0][0] not in km_idx: #find the first unself.labeled ex
-
-                        idx = v[0][0]
-                        km_idx.append(idx)
-
-                        self.update_tao(km_idx)
-
-                        p_idx, p_label, p_dist = self.update_pseudo_set(idx, key, p_idx, p_label, p_dist)
-
-                        ex_al.append([rr,key,v[0][-2],self.label[idx],raw_pt[idx]])
-                        break
-
+                self.update_tao(km_idx)
+                p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
+                
                 acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
                 self.acc_sum[rr].append(acc)
 
