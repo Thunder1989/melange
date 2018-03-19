@@ -296,8 +296,8 @@ class active_learning:
 
 if __name__ == "__main__":
 
-    raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('rice_pt_soda').readlines()]
-    tmp = np.genfromtxt('rice_hour_soda', delimiter=',')
+    raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('../data/rice_pt_soda').readlines()]
+    tmp = np.genfromtxt('../data/rice_hour_soda', delimiter=',')
     label = tmp[:,-1]
     print 'class count of true labels of all ex:\n', ct(label)
 
