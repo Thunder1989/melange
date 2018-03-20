@@ -144,7 +144,8 @@ class transferActiveLearning:
 						d_i += np.linalg.norm(self.m_target_fn[i]-self.m_target_fn[it])
 
 					for u in union:
-						print(len(self.m_target_fn[i]), len(self.m_target_fn[u]))
+						print(len(self.m_target_fn[i]))
+						print(len(self.m_target_fn[u]))
 						d_u += np.linalg.norm(self.m_target_fn[i]-self.m_target_fn[u])
 
 					if len(inter) != 0:

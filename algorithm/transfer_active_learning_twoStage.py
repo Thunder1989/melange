@@ -73,7 +73,6 @@ def plot_confusion_matrix(test_label, pred):
     pl.title('Confusion Matrix (%.3f)'%(ACC(pred, test_label)))
     pl.show()
 
-
 def output_labels():
     #re-map class label to 0~N
     u, remap = np.unique(np.append(label,pred), return_inverse=True)
@@ -84,7 +83,6 @@ def output_labels():
     f.writelines(",".join(str(l) for l in remap))
     f.write('\n')
     f.close()
-
 
 class transfer_learning:
 
@@ -120,16 +118,7 @@ class transfer_learning:
             b.fit(self.train_fd, self.train_label) #train each base classifier
 
 
-    def run(self):
-
-        '''
-        test direct data feature based transfer accuracy on the new building
-        '''
-        rf = RFC(n_estimators=100, criterion='entropy')
-        rf.fit(self.train_fd, self.train_label)
-        pred = rf.predict(self.test_fd)
-        print 'data feature transfer testing acc:', ACC(pred, self.test_label)
-        plot_confusion_matrix(self.test_label, pred)
+        def run(self):
 
 
         '''
@@ -359,7 +348,7 @@ class active_learning:
                 break
 
         return idx, c_idx
-       
+
     def get_pred_acc(self, fn_test, label_test, labeled_set, pseudo_set, pseudo_label):
 
         if not pseudo_set:
@@ -422,8 +411,13 @@ class active_learning:
             c.fit(fn_train)
             dist = np.sort(c.transform(fn_train))
 
-            ex = DD(list) #example id, distance to centroid
-            self.ex_id = DD(list) #example id for each C
+## i is the cluster id, j is the id of the instance, k is the distance
+#### ex: {clusterID:[instanceID, distance]}
+####ex_id: {clusterID:instanceID}
+###ex_Ns: {clusterID:number of instances}
+
+            ex = dd(list) #example id, distance to centroid
+            self.ex_id = dd(list) #example id for each C
             ex_N = [] # num of examples in each C
             for i,j,k in zip(c.labels_, train, dist):
                 ex[i].append([j,k[0]])
@@ -432,6 +426,12 @@ class active_learning:
                 ex[i] = sorted(j, key=lambda x: x[-1])
                 ex_N.append([i,len(ex[i])])
             ex_N = sorted(ex_N, key=lambda x: x[-1],reverse=True)
+
+### idx: the closest id to the centroid of the cluster
+### km_idx: [the closest id to the centroid of the cluster]
+
+###update_tao: update the threshold of propogating labels
+###update_pseudo_set: 
 
             km_idx = []
             p_idx = []
