@@ -4,6 +4,10 @@ first stage, run transfer learning to obtain the training labels
 second stage, run active learning to obtain the 
 """
 
+import itertools
+
+from sklearn.mixture import DPGMM
+from sklearn.feature_extraction.text import TfidfVectorizer as TV
 from sklearn.feature_extraction.text import CountVectorizer as CV
 from sklearn.cross_validation import StratifiedKFold
 from sklearn.cross_validation import KFold
@@ -30,7 +34,6 @@ import itertools
 import pylab as pl
 import matplotlib.pyplot as plt
 
-
 def get_name_features(names):
 
     name = []
@@ -43,7 +46,6 @@ def get_name_features(names):
     fn = cv.fit_transform(name).toarray()
 
     return fn
-
 
 def plot_confusion_matrix(test_label, pred):
 
@@ -86,184 +88,160 @@ def output_labels():
 
 class transfer_learning:
 
-        def __init__(self, train_fd, test_fd, train_label, test_label, test_fn, switch=False):
+    def __init__(self, train_fd, test_fd, train_label, test_label, test_fn, switch=False):
 
-            self.train_fd = train_fd
-            self.train_label = train_label
+        self.train_fd = train_fd
+        self.train_label = train_label
 
-            self.test_fd = test_fd
-            self.test_label = test_label
+        self.test_fd = test_fd
+        self.test_label = test_label
 
-            self.test_fn = test_fn
+        self.test_fn = test_fn
 
-            self.bl = []
+        self.bl = []
 
-            if switch == True:
+        if switch == True:
 
-                fd_tmp = self.train_fd
-                self.train_fd = self.test_fd
-                self.test_fd = fd_tmp
-                l_tmp = self.train_label
-                self.train_label = self.test_label
-                self.test_label = l_tmp
-
-
-        def get_base_learners(self):
-
-            rf = RFC(n_estimators=100, criterion='entropy')
-            svm = SVC(kernel='rbf', probability=True)
-            lr = LR()
-            self.bl = [rf, lr, svm] #set of base learners
-            for b in self.bl:
-                b.fit(self.train_fd, self.train_label) #train each base classifier
+            fd_tmp = self.train_fd
+            self.train_fd = self.test_fd
+            self.test_fd = fd_tmp
+            l_tmp = self.train_label
+            self.train_label = self.test_label
+            self.test_label = l_tmp
 
 
-        def run(self):
+    def get_base_learners(self):
 
-            '''
-            test direct data feature based transfer accuracy on the new building
-            '''
-            rf = RFC(n_estimators=100, criterion='entropy')
-            rf.fit(self.train_fd, self.train_label)
-            pred = rf.predict(self.test_fd)
-            print 'data feature transfer testing acc:', ACC(pred, self.test_label)
-            plot_confusion_matrix(self.test_label, pred)
+        rf = RFC(n_estimators=100, criterion='entropy')
+        svm = SVC(kernel='rbf', probability=True)
+        lr = LR()
+        self.bl = [rf, lr, svm] #set of base learners
+        for b in self.bl:
+            b.fit(self.train_fd, self.train_label) #train each base classifier
 
 
-            '''
-            step1: train base models from bldg1
-            '''
-            self.get_base_learners()
+    def run(self):
+
+        '''
+        test direct data feature based transfer accuracy on the new building
+        '''
+        rf = RFC(n_estimators=100, criterion='entropy')
+        rf.fit(self.train_fd, self.train_label)
+        pred = rf.predict(self.test_fd)
+        print 'data feature transfer testing acc:', ACC(pred, self.test_label)
+        plot_confusion_matrix(self.test_label, pred)
 
 
-            '''
-            step2: TL with name feature on bldg2
-            '''
-            label = self.test_label
-            class_ = np.unique(self.train_label)
+        '''
+        step1: train base models from bldg1
+        '''
+        self.get_base_learners()
 
-            for b in self.bl:
-                print b.score(self.test_fd,label)
 
-            n_class = 32/2
-            c = KMeans(init='k-means++', n_clusters=n_class, n_init=10)
-            c.fit(test_fn)
-            dist = np.sort(c.transform(test_fn))
-            ex_id = DD(list) #example id for each C
-            for i,j,k in zip(c.labels_, xrange(len(test_fn)), dist):
-                ex_id[i].append(int(j))
+        '''
+        step2: TL with name feature on bldg2
+        '''
+        label = self.test_label
+        class_ = np.unique(self.train_label)
 
-            #getting neighors for each ex
-            nb_c = DD() #nb from clustering results
-            for exx in ex_id.values():
+        for b in self.bl:
+            print b.score(self.test_fd,label)
+
+        n_class = 32/2
+        c = KMeans(init='k-means++', n_clusters=n_class, n_init=10)
+        c.fit(test_fn)
+        dist = np.sort(c.transform(test_fn))
+        ex_id = DD(list) #example id for each C
+        for i,j,k in zip(c.labels_, xrange(len(test_fn)), dist):
+            ex_id[i].append(int(j))
+
+        #getting neighors for each ex
+        nb_c = DD() #nb from clustering results
+        for exx in ex_id.values():
+            exx = np.asarray(exx)
+            for e in exx:
+                nb_c[e] = exx[exx!=e]
+
+        nb_f = [DD(), DD(), DD()] #nb from classification results
+        for b,n in zip(self.bl, nb_f):
+            preds = b.predict(self.test_fd)
+            ex_ = DD(list)
+            for i,j in zip(preds, xrange(len(self.test_fd))):
+                ex_[i].append(int(j))
+            for exx in ex_.values():
                 exx = np.asarray(exx)
                 for e in exx:
-                    nb_c[e] = exx[exx!=e]
+                    n[e] = exx[exx!=e]
 
-            nb_f = [DD(), DD(), DD()] #nb from classification results
-            for b,n in zip(self.bl, nb_f):
-                preds = b.predict(self.test_fd)
-                ex_ = DD(list)
-                for i,j in zip(preds, xrange(len(self.test_fd))):
-                    ex_[i].append(int(j))
-                for exx in ex_.values():
-                    exx = np.asarray(exx)
-                    for e in exx:
-                        n[e] = exx[exx!=e]
+        #use base learners' predicitons
+        preds = np.array([999 for i in xrange(len(self.test_fd))])
+        acc_ = []
+        cov_ = []
+        for delta in np.linspace(0.1, 0.5, 5):
+            print 'running TL with agreement threshold =', delta
+            ct = 0
+            t = 0
+            true = []
+            pred = []
+            l_id = []
+            output = DD()
+            for i in xrange(len(test_fn)):
+                #getting C v.s. F similiarity
+                w = []
+                v_c = set(nb_c[i])
+                for n in nb_f:
+                    v_f = set(n[i])
+                    cns = len(v_c & v_f) / float(len(v_c | v_f)) #original count based weight
+                    inter = v_c & v_f
+                    union = v_c | v_f
+                    d_i = 0
+                    d_u = 0
+                    for it in inter:
+                        d_i += np.linalg.norm(test_fn[i]-test_fn[it])
+                    for u in union:
+                        d_u += np.linalg.norm(test_fn[i]-test_fn[u])
+                    if len(inter) != 0:
+                        sim = 1 - (d_i/d_u)/cns
+                        #sim = (d_i/d_u)/cns
 
-            #use base learners' predicitons
-            preds = np.array([999 for i in xrange(len(self.test_fd))])
-            acc_ = []
-            cov_ = []
-            for delta in np.linspace(0.1, 0.5, 5):
-                print 'running TL with agreement threshold =', delta
-                ct = 0
-                t = 0
-                true = []
-                pred = []
-                l_id = []
-                output = DD()
-                for i in xrange(len(test_fn)):
-                    #getting C v.s. F similiarity
-                    w = []
-                    v_c = set(nb_c[i])
-                    for n in nb_f:
-                        v_f = set(n[i])
-                        cns = len(v_c & v_f) / float(len(v_c | v_f)) #original count based weight
-                        inter = v_c & v_f
-                        union = v_c | v_f
-                        d_i = 0
-                        d_u = 0
-                        for it in inter:
-                            d_i += np.linalg.norm(test_fn[i]-test_fn[it])
-                        for u in union:
-                            d_u += np.linalg.norm(test_fn[i]-test_fn[u])
-                        if len(inter) != 0:
-                            sim = 1 - (d_i/d_u)/cns
-                            #sim = (d_i/d_u)/cns
+                    if i in output:
+                        output[i].extend(['%s/%s'%(len(inter), len(union)), 1-sim])
+                    else:
+                        output[i] = ['%s/%s'%(len(inter), len(union)), 1-sim]
+                    w.append(sim)
+                output[i].append(np.mean(w))
 
-                        if i in output:
-                            output[i].extend(['%s/%s'%(len(inter), len(union)), 1-sim])
-                        else:
-                            output[i] = ['%s/%s'%(len(inter), len(union)), 1-sim]
-                        w.append(sim)
-                    output[i].append(np.mean(w))
+                if np.mean(w) >= delta:
+                    w[:] = [float(j)/sum(w) for j in w]
+                    pred_pr = np.zeros(len(class_))
+                    for wi, b in zip(w,self.bl):
+                        pr = b.predict_proba(self.test_fd[i].reshape(1,-1))
+                        pred_pr = pred_pr + wi*pr
+                    preds[i] = class_[np.argmax(pred_pr)]
+                    true.append(label[i])
+                    pred.append(preds[i])
+                    ct+=1
+                    l_id.append(i)
+                    if preds[i]==label[i]:
+                        t+=1
 
-                    if np.mean(w) >= delta:
-                        w[:] = [float(j)/sum(w) for j in w]
-                        pred_pr = np.zeros(len(class_))
-                        for wi, b in zip(w,self.bl):
-                            pr = b.predict_proba(self.test_fd[i].reshape(1,-1))
-                            pred_pr = pred_pr + wi*pr
-                        preds[i] = class_[np.argmax(pred_pr)]
-                        true.append(label[i])
-                        pred.append(preds[i])
-                        ct+=1
-                        l_id.append(i)
-                        if preds[i]==label[i]:
-                            t+=1
+            acc_.append(float(t)/ct)
+            cov_.append(float(ct)/len(label))
 
-                acc_.append(float(t)/ct)
-                cov_.append(float(ct)/len(label))
-
-            print 'acc =',acc_,';'
-            print 'cov =',cov_,';'
-            
-import numpy as np
-import matplotlib.pyplot as plt
-import math
-import random
-import re
-import itertools
-import pylab as pl
-
-from collections import defaultdict as dd
-from collections import Counter as ct
-
-from sklearn.cluster import KMeans
-from sklearn.mixture import DPGMM
-
-from sklearn.feature_extraction.text import CountVectorizer as CV
-from sklearn.feature_extraction.text import TfidfVectorizer as TV
-from sklearn.cross_validation import StratifiedKFold
-from sklearn.cross_validation import KFold
-from sklearn.ensemble import RandomForestClassifier as RFC
-from sklearn.svm import LinearSVC
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import confusion_matrix as CM
-from sklearn.preprocessing import normalize
+        print 'acc =',acc_,';'
+        print 'cov =',cov_,';'
 
 def get_name_features(names):
 
-        name = []
-        for i in names:
-            s = re.findall('(?i)[a-z]{2,}',i)
-            name.append(' '.join(s))
+    name = []
+    for i in names:
+        s = re.findall('(?i)[a-z]{2,}',i)
+        name.append(' '.join(s))
 
-        cv = CV(analyzer='char_wb', ngram_range=(3,4))
-        fn = cv.fit_transform(name).toarray()
+    cv = CV(analyzer='char_wb', ngram_range=(3,4))
+    fn = cv.fit_transform(name).toarray()
 
-        return fn
+    return fn
 
 class active_learning:
 
@@ -279,9 +257,8 @@ class active_learning:
         self.tao = 0
         self.alpha_ = 1
 
-        self.clf = LinearSVC()
-        self.ex_id = dd(list)
-
+        self.clf = SVC()
+        self.ex_id = DD(list)
 
     def update_tao(self, labeled_set):
 
@@ -298,7 +275,6 @@ class active_learning:
             self.tao = self.alpha_*min(dist_inter)/2 #set tao be the min(inter-class pair dist)/2
         except Exception as e:
             self.tao = self.tao
-
 
     def update_pseudo_set(self, new_ex_id, cluster_id, p_idx, p_label, p_dist):
 
@@ -340,10 +316,9 @@ class active_learning:
 
         return p_idx, p_label, p_dist
 
-
     def select_example(self, labeled_set):
 
-        sub_pred = dd(list) #Mn predicted labels for each cluster
+        sub_pred = DD(list) #Mn predicted labels for each cluster
         idx = 0
 
         for k,v in self.ex_id.items():
@@ -352,7 +327,7 @@ class active_learning:
         #entropy-based cluster selection
         rank = []
         for k,v in sub_pred.items():
-            count = ct(v).values()
+            count = CT(v).values()
             count[:] = [i/float(max(count)) for i in count]
             H = np.sum(-p*math.log(p,2) for p in count if p!=0)
             rank.append([k,len(v),H])
@@ -371,7 +346,7 @@ class active_learning:
         c_.fit(sub_fn)
         dist = np.sort(c_.transform(sub_fn))
 
-        ex_ = dd(list)
+        ex_ = DD(list)
         for i,j,k,l in zip(c_.labels_, c_ex_id, dist, sub_label):
             ex_[i].append([j,l,k[0]])
         for i,j in ex_.items(): #sort by ex. dist to the centroid for each C
@@ -384,8 +359,7 @@ class active_learning:
                 break
 
         return idx, c_idx
-
-        
+       
     def get_pred_acc(self, fn_test, label_test, labeled_set, pseudo_set, pseudo_label):
 
         if not pseudo_set:
@@ -398,15 +372,14 @@ class active_learning:
         self.clf.fit(fn_train, label_train)
         fn_preds = self.clf.predict(fn_test)
 
-        acc = accuracy_score(label_test, fn_preds)
+        acc = ACC(label_test, fn_preds)
 
         return acc
-
 
     def plot_confusion_matrix(self, label_test, fn_test):
 
         fn_preds = self.clf.predict(fn_test)
-        acc = accuracy_score(label_test, fn_preds)
+        acc = ACC(label_test, fn_preds)
 
         cm_ = CM(label_test, fn_preds)
         cm = normalize(cm_.astype(np.float), axis=1, norm='l1')
@@ -434,7 +407,6 @@ class active_learning:
 
         pl.show()
 
-
     def run_CV(self):
 
         kf = KFold(len(self.label), n_folds=self.fold, shuffle=True)
@@ -450,8 +422,8 @@ class active_learning:
             c.fit(fn_train)
             dist = np.sort(c.transform(fn_train))
 
-            ex = dd(list) #example id, distance to centroid
-            self.ex_id = dd(list) #example id for each C
+            ex = DD(list) #example id, distance to centroid
+            self.ex_id = DD(list) #example id for each C
             ex_N = [] # num of examples in each C
             for i,j,k in zip(c.labels_, train, dist):
                 ex[i].append([j,k[0]])
@@ -464,7 +436,7 @@ class active_learning:
             km_idx = []
             p_idx = []
             p_label = []
-            p_dist = dd()
+            p_dist = DD()
             #first batch of exs: pick centroid of each cluster, and cluster visited based on its size
             ctr = 0
             for ee in ex_N:
