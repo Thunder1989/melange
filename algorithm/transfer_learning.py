@@ -195,6 +195,7 @@ class transfer_learning:
                         for it in inter:
                             d_i += np.linalg.norm(test_fn[i]-test_fn[it])
                         for u in union:
+                            print("u\t", u)
                             d_u += np.linalg.norm(test_fn[i]-test_fn[u])
                         if len(inter) != 0:
                             sim = 1 - (d_i/d_u)/cns
@@ -240,6 +241,8 @@ if __name__ == "__main__":
     fd1 = input1[:, 0:-1]
     fd2 = input2[:, 0:-1]
 
+    print len(fd2)
+
     #self.train_fd = np.hstack((fd1,fd2))
     train_fd = fd1
     test_fd = fd2
@@ -249,6 +252,8 @@ if __name__ == "__main__":
 
     ptn = [i.strip().split('\\')[-1][:-5] for i in open('../data/rice_pt_sdh').readlines()]
     test_fn = get_name_features(ptn)
+
+    print len(test_fn)
 
     tl = transfer_learning(train_fd, test_fd, train_label, test_label, test_fn, True)
     tl.run()

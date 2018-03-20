@@ -44,7 +44,7 @@ def get_name_features(names):
 
 
 class transferActiveLearning:
-	def __init__(self, source_fd, source_label, target_fd, target_label, target_fn):
+	def __init__(self, source_fd, source_label, target_fd, target_label, target_fn, switch=False):
 
 		self.m_source_fd = source_fd
 		self.m_source_label = source_label
@@ -55,6 +55,15 @@ class transferActiveLearning:
 		self.m_target_fn = target_fn
 
 		self.bl = []
+
+		if switch==True:
+			fd_tmp = self.m_source_fd
+			self.m_source_fd = self.m_target_fd
+			self.m_target_fd = fd_tmp
+
+			l_tmp = self.m_source_label
+			self.m_source_label = self.m_target_label
+			self.m_target_label = l_tmp
 
 
 	def get_base_learners(self):
@@ -144,8 +153,8 @@ class transferActiveLearning:
 						d_i += np.linalg.norm(self.m_target_fn[i]-self.m_target_fn[it])
 
 					for u in union:
-						print(len(self.m_target_fn[i]))
-						print(len(self.m_target_fn[u]))
+						# print(len(self.m_target_fn[i]))
+						# print(len(self.m_target_fn[u]))
 						d_u += np.linalg.norm(self.m_target_fn[i]-self.m_target_fn[u])
 
 					if len(inter) != 0:
@@ -189,5 +198,5 @@ if __name__ == '__main__':
 	target_fn = get_name_features(ptn)
 	print("len(target_fn)\t", len(target_fn))
 
-	tl = transferActiveLearning(source_fd, source_label, target_fd, target_label, target_fn)
+	tl = transferActiveLearning(source_fd, source_label, target_fd, target_label, target_fn, True)
 	tl.run()
