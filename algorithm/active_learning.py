@@ -168,7 +168,8 @@ class active_learning:
         fn_preds = self.clf.predict(fn_test)
 
         acc = accuracy_score(label_test, fn_preds)
-
+        # print("acc\t", acc)
+        # print debug
         return acc
 
 
@@ -252,7 +253,8 @@ class active_learning:
 
                 acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
                 self.acc_sum[ctr-1].append(acc)
-
+                print acc
+                # print("acc\t", acc)
 
             cl_id = [] #track cluster id on each iter
             ex_al = [] #track ex added on each iter
@@ -280,16 +282,18 @@ class active_learning:
                 acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
                 self.acc_sum[rr].append(acc)
 
-            print '# of p label', len(p_label)
-            print cl_id
-            if not p_label:
-                print 'p label acc', 0
-                p_acc.append(0)
-            else:
-                print 'p label acc', sum(self.label[p_idx]==p_label)/float(len(p_label))
-                p_acc.append(sum(self.label[p_idx]==p_label)/float(len(p_label)))
-            print '----------------------------------------------------'
-            print '----------------------------------------------------'
+                print acc
+            print debug
+            # print '# of p label', len(p_label)
+            # print cl_id
+            # if not p_label:
+            #     print 'p label acc', 0
+            #     p_acc.append(0)
+            # else:
+            #     print 'p label acc', sum(self.label[p_idx]==p_label)/float(len(p_label))
+            #     p_acc.append(sum(self.label[p_idx]==p_label)/float(len(p_label)))
+            # print '----------------------------------------------------'
+            # print '----------------------------------------------------'
 
         print 'class count of clf training ex:', ct(label_train)
         self.acc_sum = [i for i in self.acc_sum if i]
@@ -301,8 +305,8 @@ class active_learning:
 
 if __name__ == "__main__":
 
-    raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('../data/rice_pt_soda').readlines()]
-    tmp = np.genfromtxt('../data/rice_hour_soda', delimiter=',')
+    raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('../data/rice_pt_sdh').readlines()]
+    tmp = np.genfromtxt('../data/rice_hour_sdh', delimiter=',')
     label = tmp[:,-1]
     print 'class count of true labels of all ex:\n', ct(label)
 
