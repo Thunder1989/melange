@@ -1,3 +1,8 @@
+"""
+In this setting, we apply transfer learning first and then run active learning
+The data is splitted into train-test only when running active learning
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 import math
@@ -59,8 +64,7 @@ class transferActiveLearning:
 		self.tao = 0
 		self.alpha_ = 1
 
-		# self.clf = LinearSVC()
-		self.clf = SVC()
+		self.clf = LinearSVC()
 		self.ex_id = dd(list)
 
 
@@ -167,7 +171,7 @@ class transferActiveLearning:
 		return idx, c_idx
 
 		
-	def get_pred_acc(self, fn_test, label_test, labeled_set, pseudo_set, pseudo_label):
+	def get_pred_acc(self, fn_test, label_test, transfer_fn_train, transfer_label_train, labeled_set, pseudo_set, pseudo_label):
 
 		fn_train_pred = []
 		label_train_pred = []
@@ -181,8 +185,8 @@ class transferActiveLearning:
 			# print(label_train_pred.shape)
 			# print(transfer_label_train.shape)
 
-			# fn_train_pred = np.vstack((fn_train_pred, transfer_fn_train))
-			# label_train_pred = np.hstack((label_train_pred, transfer_label_train))
+			fn_train_pred = np.vstack((fn_train_pred, transfer_fn_train))
+			label_train_pred = np.hstack((label_train_pred, transfer_label_train))
 		else:
 			fn_train_pred = self.m_target_fn[np.hstack((labeled_set, pseudo_set))]
 			label_train_pred = np.hstack((self.m_target_label[labeled_set], pseudo_label))
@@ -192,8 +196,8 @@ class transferActiveLearning:
 			# print(label_train_pred.shape)
 			# print(transfer_label_train.shape)
 
-			# fn_train_pred = np.vstack((fn_train_pred, transfer_fn_train))
-			# label_train_pred = np.hstack((label_train_pred, transfer_label_train))
+			fn_train_pred = np.vstack((fn_train_pred, transfer_fn_train))
+			label_train_pred = np.hstack((label_train_pred, transfer_label_train))
 
 		self.clf.fit(fn_train_pred, label_train_pred)
 		fn_preds = self.clf.predict(fn_test)
@@ -353,18 +357,18 @@ class transferActiveLearning:
 			transfer_train_al = []
 			transfer_fn_train = []
 			transfer_label_train = []
-			# for i in range(len(train)):
-			# 	if i not in transfer_idList:
-			# 		train_al.append(train[i])
-			# 	else:
-			# 		transfer_train_al.append(train[i])
-			# 		transfer_label_train.append(preds[i])
+			for i in range(len(train)):
+				if i not in transfer_idList:
+					train_al.append(train[i])
+				else:
+					transfer_train_al.append(train[i])
+					transfer_label_train.append(preds[i])
 
-			# transfer_fn_train = self.m_target_fn[transfer_train_al]
+			transfer_fn_train = self.m_target_fn[transfer_train_al]
 			# transfer_label_train = self.m_target_label[transfer_train_al]
 				
 			# train_al = train
-			fn_train = self.m_target_fn[train]
+			fn_train = self.m_target_fn[train_al]
 			c = KMeans(init='k-means++', n_clusters=28, n_init=10)
 			c.fit(fn_train)
 			dist = np.sort(c.transform(fn_train))
@@ -372,7 +376,7 @@ class transferActiveLearning:
 			ex = dd(list) #example id, distance to centroid
 			self.ex_id = dd(list) #example id for each C
 			ex_N = [] # num of examples in each C
-			for i,j,k in zip(c.labels_, train, dist):
+			for i,j,k in zip(c.labels_, train_al, dist):
 				ex[i].append([j,k[0]])
 				self.ex_id[i].append(int(j))
 			for i,j in ex.items():
@@ -394,18 +398,18 @@ class transferActiveLearning:
 				ctr+=1
 
 				if ctr<3:
-					# p_idx = []
-					# p_label = []
+					p_idx = []
+					p_label = []
 
-					# acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
-					# accList[cvIter].append(acc)
+					acc = self.get_pred_acc(fn_test, label_test, transfer_fn_train, transfer_label_train, km_idx, p_idx, p_label)
+					accList[cvIter].append(acc)
 					continue
 
 				self.update_tao(km_idx)
 
 				p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
 
-				acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
+				acc = self.get_pred_acc(fn_test, label_test, transfer_fn_train, transfer_label_train, km_idx, p_idx, p_label)
 				self.acc_sum[ctr-1] = (acc)
 				accList[cvIter].append(acc)
 				# print acc
@@ -423,14 +427,14 @@ class transferActiveLearning:
 					fn_train_iter = self.m_target_fn[km_idx]
 					label_train_iter = self.m_target_label[km_idx]
 
-					# fn_train_iter = np.vstack((fn_train_iter, transfer_fn_train))
-					# label_train_iter = np.hstack((label_train_iter, transfer_label_train))
+					fn_train_iter = np.vstack((fn_train_iter, transfer_fn_train))
+					label_train_iter = np.hstack((label_train_iter, transfer_label_train))
 				else:
 					fn_train_iter = self.m_target_fn[np.hstack((km_idx, p_idx))]
 					label_train_iter = np.hstack((self.m_target_label[km_idx], p_label))
 
-					# fn_train_iter = np.vstack((fn_train_iter, transfer_fn_train))
-					# label_train_iter = np.hstack((label_train_iter, transfer_label_train))
+					fn_train_iter = np.vstack((fn_train_iter, transfer_fn_train))
+					label_train_iter = np.hstack((label_train_iter, transfer_label_train))
 
 				self.clf.fit(fn_train_iter, label_train_iter)                        
 				idx, c_idx, = self.select_example(km_idx)                
@@ -441,18 +445,17 @@ class transferActiveLearning:
 				self.update_tao(km_idx)
 				p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
 				
-				acc = self.get_pred_acc(fn_test, label_test,km_idx, p_idx, p_label)
+				acc = self.get_pred_acc(fn_test, label_test, transfer_fn_train, transfer_label_train,km_idx, p_idx, p_label)
 				self.acc_sum[rr] = (acc)
 				accList[cvIter].append(acc)
 
-			print(accList[cvIter])
-		# f = open("al.txt", "w")
-		# for i in range(10):
-		# 	totalAlNum = len(accList[i])
-		# 	for j in range(totalAlNum):
-		# 		f.write(str(accList[i][j])+"\t")
-		# 	f.write("\n")
-		# f.close()
+		f = open("tl_al_predictLabel.txt", "w")
+		for i in range(10):
+			totalAlNum = len(accList[i])
+			for j in range(totalAlNum):
+				f.write(str(accList[i][j])+"\t")
+			f.write("\n")
+		f.close()
 				# print acc
 		# print debug
 			# print '# of p label', len(p_label)
@@ -504,3 +507,4 @@ if __name__ == "__main__":
 	al = transferActiveLearning(fold, rounds, source_fd, source_label, target_fd, target_label, target_fn)
 
 	al.run_CV()
+
