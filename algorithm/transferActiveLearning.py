@@ -7,6 +7,7 @@ from sklearn.cross_validation import StratifiedKFold
 from sklearn.cross_validation import KFold
 from sklearn.ensemble import RandomForestClassifier as RFC
 from sklearn.svm import SVC
+from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression as LR
 from sklearn.cluster import KMeans
 from sklearn.neighbors import NearestNeighbors as NN
@@ -64,7 +65,7 @@ class transferActiveLearning:
 		self.acc_sum = [0 for i in xrange(self.rounds)] #acc per iter for each fold
 
 
-		self.clf = SVC()
+		self.clf = LinearSVC()
 		self.ex_id = DD(list)
 
 		if switch==True:

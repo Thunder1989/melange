@@ -1,81 +1,86 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+import random
+import re
 import itertools
+import pylab as pl
 
+from collections import defaultdict as dd
+from collections import Counter as ct
+
+from sklearn.cluster import KMeans
 from sklearn.mixture import DPGMM
-from sklearn.feature_extraction.text import TfidfVectorizer as TV
+
 from sklearn.feature_extraction.text import CountVectorizer as CV
+from sklearn.feature_extraction.text import TfidfVectorizer as TV
 from sklearn.cross_validation import StratifiedKFold
 from sklearn.cross_validation import KFold
 from sklearn.ensemble import RandomForestClassifier as RFC
+from sklearn.svm import LinearSVC
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression as LR
-from sklearn.cluster import KMeans
-from sklearn.neighbors import NearestNeighbors as NN
-from sklearn.metrics import accuracy_score as ACC
-from sklearn.metrics import precision_score
-from sklearn.metrics import recall_score
-from sklearn.metrics import f1_score as FS
+from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix as CM
 from sklearn.preprocessing import normalize
-from collections import defaultdict as DD
-from collections import Counter as CT
-from matplotlib import cm as Color
-
-
-import numpy as np
-import re
-import math
-import random
-import itertools
-import pylab as pl
-import matplotlib.pyplot as plt
-
 
 def get_name_features(names):
 
-	name = []
-	for i in names:
+		name = []
+		for i in names:
+			s = re.findall('(?i)[a-z]{2,}',i)
+			name.append(' '.join(s))
 
-		s = re.findall('(?i)[a-z]{2,}',i)
-		name.append(' '.join(s))
+		cv = CV(analyzer='char_wb', ngram_range=(3,4))
+		fn = cv.fit_transform(name).toarray()
 
-	cv = CV(analyzer='char_wb', ngram_range=(3,4))
-	fn = cv.fit_transform(name).toarray()
-
-	return fn
-
+		return fn
 
 class transferActiveLearning:
-	def __init__(self, source_fd, source_label, target_fd, target_label, target_fn, switch=False):
+
+	def __init__(self, fold, rounds, source_fd, source_label, target_fd, target_label, target_fn):
+
+		self.fold = fold
+		self.rounds = rounds
+		self.acc_sum = [[] for i in xrange(self.rounds)] #acc per iter for each fold
 
 		self.m_source_fd = source_fd
 		self.m_source_label = source_label
 
 		self.m_target_fd = target_fd
-		self.m_target_label = target_label
 
 		self.m_target_fn = target_fn
+		self.m_target_label = target_label
+		# self.fn = fn
+		# self.m_target_label = label
 
 		self.bl = []
 
 		self.tao = 0
 		self.alpha_ = 1
 
-		self.rounds = 100
-		self.acc_sum = [0 for i in xrange(self.rounds)] #acc per iter for each fold
-
-
+		# self.clf = LinearSVC()
 		self.clf = SVC()
-		self.ex_id = DD(list)
+		self.ex_id = dd(list)
 
-		if switch==True:
-			fd_tmp = self.m_source_fd
-			self.m_source_fd = self.m_target_fd
-			self.m_target_fd = fd_tmp
 
-			l_tmp = self.m_source_label
-			self.m_source_label = self.m_target_label
-			self.m_target_label = l_tmp
-	
+	def update_tao(self, labeled_set):
+
+		dist_inter = []
+		pair = list(itertools.combinations(labeled_set,2))
+
+		for p in pair:
+
+			d = np.linalg.norm(self.m_target_fn[p[0]]-self.m_target_fn[p[1]])
+			if self.m_target_label[p[0]] != self.m_target_label[p[1]]:
+				dist_inter.append(d)
+
+		try:
+			self.tao = self.alpha_*min(dist_inter)/2 #set tao be the min(inter-class pair dist)/2
+		except Exception as e:
+			self.tao = self.tao
+
+
 	def update_pseudo_set(self, new_ex_id, cluster_id, p_idx, p_label, p_dist):
 
 		tmp = []
@@ -117,59 +122,9 @@ class transferActiveLearning:
 		return p_idx, p_label, p_dist
 
 
-	def get_pred_acc(self, fn_test, label_test, tl_labeled_idList, al_labeled_idList, pseudo_set, pseudo_label):
-			
-		fn_train = []
-		label_train = []
-
-		if not pseudo_set:
-			labeledList = []
-			labeledList.extend(tl_labeled_idList)
-			labeledList.extend(al_labeled_idList)
-
-			# print("label list\t", labeledList)
-
-			fn_train = self.m_target_fn[labeledList]
-			label_train = self.m_target_label[labeledList]
-		else:
-			labeledList = []
-			labeledList.extend(tl_labeled_idList)
-			labeledList.extend(al_labeled_idList)
-
-			label_train = []
-			label_train.extend(self.m_target_label[labeledList])
-
-			# print("label list\t", labeledList)
-
-			labeledList.extend(pseudo_set)
-			fn_train = self.m_target_fn[labeledList]
-			
-			label_train.extend(pseudo_label)
-
-		self.clf.fit(fn_train, label_train)
-		fn_preds = self.clf.predict(fn_test)
-
-		acc = ACC(label_test, fn_preds)
-
-		return acc
-
-	def update_tao(self, labeled_set):
-		dist_inter = []
-		pair = list(itertools.combinations(labeled_set,2))
-
-		for p in pair:
-
-			d = np.linalg.norm(self.m_target_fn[p[0]]-self.m_target_fn[p[1]])
-			if self.m_target_label[p[0]] != self.m_target_label[p[1]]:
-				dist_inter.append(d)
-		try:
-			self.tao = self.alpha_*min(dist_inter)/2 #set tao be the min(inter-class pair dist)/2
-		except Exception as e:
-			self.tao = self.tao
-	
 	def select_example(self, labeled_set):
-	
-		sub_pred = DD(list) #Mn predicted labels for each cluster
+
+		sub_pred = dd(list) #Mn predicted labels for each cluster
 		idx = 0
 
 		for k,v in self.ex_id.items():
@@ -178,7 +133,7 @@ class transferActiveLearning:
 		#entropy-based cluster selection
 		rank = []
 		for k,v in sub_pred.items():
-			count = CT(v).values()
+			count = ct(v).values()
 			count[:] = [i/float(max(count)) for i in count]
 			H = np.sum(-p*math.log(p,2) for p in count if p!=0)
 			rank.append([k,len(v),H])
@@ -186,6 +141,7 @@ class transferActiveLearning:
 
 		if not rank:
 			raise ValueError('no clusters found in this iteration!')        
+
 		c_idx = rank[0][0] #pick the 1st cluster on the rank, ordered by label entropy
 		c_ex_id = self.ex_id[c_idx] #examples in the cluster picked
 		sub_label = sub_pred[c_idx] #used when choosing cluster by H
@@ -196,7 +152,7 @@ class transferActiveLearning:
 		c_.fit(sub_fn)
 		dist = np.sort(c_.transform(sub_fn))
 
-		ex_ = DD(list)
+		ex_ = dd(list)
 		for i,j,k,l in zip(c_.labels_, c_ex_id, dist, sub_label):
 			ex_[i].append([j,l,k[0]])
 		for i,j in ex_.items(): #sort by ex. dist to the centroid for each C
@@ -207,286 +163,344 @@ class transferActiveLearning:
 
 				idx = v[0][0]
 				break
-		
+
 		return idx, c_idx
 
+		
+	def get_pred_acc(self, fn_test, label_test, labeled_set, pseudo_set, pseudo_label):
+
+		fn_train_pred = []
+		label_train_pred = []
+
+		if not pseudo_set:
+			fn_train_pred = self.m_target_fn[labeled_set]
+			label_train_pred = self.m_target_label[labeled_set]
+
+			# print(fn_train_pred.shape)
+			# print(transfer_fn_train.shape)
+			# print(label_train_pred.shape)
+			# print(transfer_label_train.shape)
+
+			# fn_train_pred = np.vstack((fn_train_pred, transfer_fn_train))
+			# label_train_pred = np.hstack((label_train_pred, transfer_label_train))
+		else:
+			fn_train_pred = self.m_target_fn[np.hstack((labeled_set, pseudo_set))]
+			label_train_pred = np.hstack((self.m_target_label[labeled_set], pseudo_label))
+
+			# print(fn_train_pred.shape)
+			# print(transfer_fn_train.shape)
+			# print(label_train_pred.shape)
+			# print(transfer_label_train.shape)
+
+			# fn_train_pred = np.vstack((fn_train_pred, transfer_fn_train))
+			# label_train_pred = np.hstack((label_train_pred, transfer_label_train))
+
+		self.clf.fit(fn_train_pred, label_train_pred)
+		fn_preds = self.clf.predict(fn_test)
+
+		acc = accuracy_score(label_test, fn_preds)
+		# print("acc\t", acc)
+		# print debug
+		return acc
+
+
+	def plot_confusion_matrix(self, label_test, fn_test):
+
+		fn_preds = self.clf.predict(fn_test)
+		acc = accuracy_score(label_test, fn_preds)
+
+		cm_ = CM(label_test, fn_preds)
+		cm = normalize(cm_.astype(np.float), axis=1, norm='l1')
+
+		fig = pl.figure()
+		ax = fig.add_subplot(111)
+		cax = ax.matshow(cm)
+		fig.colorbar(cax)
+		for x in xrange(len(cm)):
+			for y in xrange(len(cm)):
+				ax.annotate(str("%.3f(%d)"%(cm[x][y], cm_[x][y])), xy=(y,x),
+							horizontalalignment='center',
+							verticalalignment='center',
+							fontsize=10)
+		cm_cls =np.unique(np.hstack((label_test,fn_preds)))
+
+		cls = []
+		for c in cm_cls:
+			cls.append(mapping[c])
+		pl.yticks(range(len(cls)), cls)
+		pl.ylabel('True label')
+		pl.xticks(range(len(cls)), cls)
+		pl.xlabel('Predicted label')
+		pl.title('Mn Confusion matrix (%.3f)'%acc)
+
+		pl.show()
+	
 	def get_base_learners(self):
 		rf = RFC(n_estimators=100, criterion='entropy')
-
 		svm = SVC(kernel='rbf', probability=True)
 		lr = LR()
-
-		self.bl = [rf, lr, svm]
-
+		self.bl = [rf, lr, svm] #set of base learners
 		for b in self.bl:
-			b.fit(self.m_source_fd, self.m_source_label)
-
-	def run(self):
-
-		rf = RFC(n_estimators=100, criterion='entropy')
-		rf.fit(self.m_source_fd, self.m_source_label)
-
-		# pred = rf.predict(self.m_target_fd)
-		# print('data feature transfer learning acc:', ACC(pred, self.m_target_label))
-
-		targetNum = len(self.m_target_fn)
-
-		target_index = [i for i in range(targetNum)]
-		np.random.shuffle(target_index)
-
-		target_trainNum = int(targetNum*0.9)
-		target_testNum = targetNum - target_trainNum
-
-		target_train_fn = self.m_target_fn[:target_trainNum]
-		target_train_label = self.m_target_label[:target_trainNum]
-
-		target_test_fn = self.m_target_fn[target_trainNum:]
-		target_test_label = self.m_target_label[target_trainNum:]
+			b.fit(self.m_source_fd, self.m_source_label) #train each base classifier
 
 
-		np.random.shuffle(al_Target_index)
-		al_Target_num = len(al_Target_index)
-		print("active learning example num\t", al_Target_num)
-		trainNum = int(al_Target_num*0.9)
-		print("training num\t", trainNum)
+	def run_CV(self):
 
-		self.get_base_learners()
+		totalInstanceNum = len(self.m_target_label)
+		print("totalInstanceNum\t", totalInstanceNum)
+		indexList = [i for i in range(totalInstanceNum)]
 
-		label = self.m_target_label
-		class_ = np.unique(self.m_source_label)
+		accList = [[] for i in range(10)]
+		for cvIter in range(10):
+			print("cvIter...\t", cvIter)
+			np.random.shuffle(indexList)
 
-		for b in self.bl:
-			print("base classifier rf, lr, svm")
-			print(b.score(self.m_target_fd, label))
+			trainNum = int(totalInstanceNum*0.9)
+			train = indexList[:trainNum]
+			test = indexList[trainNum:]
 
-	##cluster based on name features
-		n_class = 32/2
-		c = KMeans(init='k-means++', n_clusters=n_class, n_init=10)
-		c.fit(self.m_target_fn)
-		dist = np.sort(c.transform(self.m_target_fn))
-		ex_id = DD(list)
-		for i,j,k in zip(c.labels_, xrange(len(self.m_target_fn)), dist):
-			ex_id[i].append(int(j))
+			# train = indexList
+			# test = indexList
 
-### get the neighbors for each example, nb_c from the clustering results
-		nb_c = DD()
-		for exx in ex_id.values():
-			exx = np.asarray(exx)
-			for e in exx:
-				nb_c[e] = exx[exx!=e]
+			# for train, test in kf:
+			fn_train = self.m_target_fn[train]
+			label_train = self.m_target_label[train]
+			fd_train = self.m_target_fd[train]
 
-###get the neighbors from classification
-		nb_f = [DD(), DD(), DD()]
+			fn_test = self.m_target_fn[test]
+			label_test = self.m_target_label[test]
+			fd_test = self.m_target_fd[test]
 
-		for b, n in zip(self.bl, nb_f):
-			preds = b.predict(self.m_target_fd)
-			ex_ = DD(list)
-			for i,j in zip(preds, xrange(len(self.m_target_fd))):
-				ex_[i].append(int(j))
+			###transfer learning
 
-			for exx in ex_.values():
+			self.get_base_learners()
+
+			n_class = 32/2
+			c_transfer = KMeans(init='k-means++', n_clusters=n_class, n_init=10)
+			c_transfer.fit(fn_train)
+			dist_transfer = np.sort(c_transfer.transform(fn_train))
+			ex_id_transfer = dd(list) #example id for each C
+			for i,j,k in zip(c_transfer.labels_, xrange(len(fn_train)), dist_transfer):
+				ex_id_transfer[i].append(int(j))
+
+			nb_c_transfer = dd() #nb from clustering results
+			for exx in ex_id_transfer.values():
 				exx = np.asarray(exx)
 				for e in exx:
-					n[e] = exx[exx!=e]
+					nb_c_transfer[e] = exx[exx!=e]
 
-		preds = np.array([999 for i in xrange(len(self.m_target_fd))])
+			nb_f_transfer = [dd(), dd(), dd()] #nb from classification results
+			for b,n in zip(self.bl, nb_f_transfer):
+				preds = b.predict(fd_train)
+				ex_transfer = dd(list)
+				for i,j in zip(preds, xrange(len(fd_train))):
+					ex_transfer[i].append(int(j))
+				for exx in ex_transfer.values():
+					exx = np.asarray(exx)
+					for e in exx:
+						n[e] = exx[exx!=e]
 
-		acc_ = []
-		# for delta in np.linspace(0.1, 0.5, 5):
-		threshold4TL = 0.5
-		print("transfer learning agreement threshold\t", threshold4TL)
+			preds = np.array([999 for i in xrange(len(fn_train))])
+			acc_ = []
+			cov_ = []
 
-		pred = []
-		l_idList = []
-		correct = 0.0
-		predNum = 0.0
+			pred_transfer = 0
+			correct_pred_transfer = 0
+			transfer_idList = []
 
-		output = DD()
-		print("len self.m_target_fn\t",len(self.m_target_fn))
-		for i in xrange(len(self.m_target_fn)):
-			w = []
-			v_c = set(nb_c[i])
-			for n in nb_f:
-				v_f = set(n[i])
-				cns = len(v_c&v_f)/float(len(v_c|v_f))
+			class_ = np.unique(self.m_source_label)
 
-				inter = v_c & v_f
-				union = v_c | v_f
+			delta = 0.5
+			for i in xrange(len(fn_train)):
+						#getting C v.s. F similiarity
+				w = []
+				v_c = set(nb_c_transfer[i])
+				for n in nb_f_transfer:
+					v_f = set(n[i])
+					cns = len(v_c & v_f) / float(len(v_c | v_f)) #original count based weight
+					inter = v_c & v_f
+					union = v_c | v_f
+					d_i = 0
+					d_u = 0
+					sim = 0.0
+					for it in inter:
+						d_i += np.linalg.norm(fn_train[i]-fn_train[it])
+					for u in union:
+						d_u += np.linalg.norm(fn_train[i]-fn_train[u])
+					if len(inter) != 0:
+						sim = 1 - (d_i/d_u)/cns
 
-				d_i = 0
-				d_u = 0
+					w.append(sim)
 
-				for it in inter:
-					d_i += np.linalg.norm(self.m_target_fn[i]-self.m_target_fn[it])
+				if np.mean(w) >= delta:
+					w[:] = [float(j)/sum(w) for j in w]
+					pred_pr = np.zeros(len(class_))
+					for wi, b in zip(w,self.bl):
+						pr = b.predict_proba(fd_train[i].reshape(1,-1))
+						pred_pr = pred_pr + wi*pr
+					preds[i] = class_[np.argmax(pred_pr)]
+				   
+					pred_transfer+=1.0
+					transfer_idList.append(i)
 
-				for u in union:
-					# print(len(self.m_target_fn[i]))
-					# print(len(self.m_target_fn[u]))
-					d_u += np.linalg.norm(self.m_target_fn[i]-self.m_target_fn[u])
+					if preds[i]==label_train[i]:
+						correct_pred_transfer += 1.0
 
-				if len(inter) != 0:
-					sim = 1-(d_i/d_u)/cns
+			print("acc transfer\t", correct_pred_transfer/pred_transfer)
 
-				w.append(sim)
+			# transfer_idList = []
+			train_al = []
+			transfer_train_al = []
+			transfer_fn_train = []
+			transfer_label_train = []
+			# for i in range(len(train)):
+			# 	if i not in transfer_idList:
+			# 		train_al.append(train[i])
+			# 	else:
+			# 		transfer_train_al.append(train[i])
+			# 		transfer_label_train.append(preds[i])
 
-			if np.mean(w) >= threshold4TL:
-				w[:] = [float(j)/sum(w) for j in w]
-				pred_pr = np.zeros(len(class_))
-				for wi, b in zip(w, self.bl):
-					pr = b.predict_proba(self.m_target_fd[i].reshape(1, -1))
+			# transfer_fn_train = self.m_target_fn[transfer_train_al]
+			# transfer_label_train = self.m_target_label[transfer_train_al]
+				
+			# train_al = train
+			fn_train = self.m_target_fn[train]
+			c = KMeans(init='k-means++', n_clusters=28, n_init=10)
+			c.fit(fn_train)
+			dist = np.sort(c.transform(fn_train))
 
-					pred_pr = pred_pr + wi*pr
+			ex = dd(list) #example id, distance to centroid
+			self.ex_id = dd(list) #example id for each C
+			ex_N = [] # num of examples in each C
+			for i,j,k in zip(c.labels_, train, dist):
+				ex[i].append([j,k[0]])
+				self.ex_id[i].append(int(j))
+			for i,j in ex.items():
+				ex[i] = sorted(j, key=lambda x: x[-1])
+				ex_N.append([i,len(ex[i])])
+			ex_N = sorted(ex_N, key=lambda x: x[-1],reverse=True)
 
-				preds[i] = class_[np.argmax(pred_pr)]
-				pred.append(preds[i])
-				l_idList.append(i)
+			km_idx = []
+			p_idx = []
+			p_label = []
+			p_dist = dd()
+			#first batch of exs: pick centroid of each cluster, and cluster visited based on its size
+			ctr = 0
+			for ee in ex_N:
 
-				predNum += 1.0
+				c_idx = ee[0] #cluster id
+				idx = ex[c_idx][0][0] #id of ex closest to centroid of cluster
+				km_idx.append(idx)
+				ctr+=1
 
-				if preds[i] == label[i]:
-					correct += 1.0
+				if ctr<3:
+					# p_idx = []
+					# p_label = []
 
-		print("accuracy\t", correct/predNum)
+					# acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
+					# accList[cvIter].append(acc)
+					continue
 
-		print("accurate prediction num\t", len(l_idList))		
+				self.update_tao(km_idx)
 
-		# al_Target_fn = []
-		# al_Target_label = []
+				p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
 
-		l_idList = []
+				acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
+				self.acc_sum[ctr-1] = (acc)
+				accList[cvIter].append(acc)
+				# print acc
+				# print("acc\t", acc)
 
-		al_Target_index = []
+			cl_id = [] #track cluster id on each iter
+			ex_al = [] #track ex added on each iter
+			fn_test = self.m_target_fn[test]
+			label_test = self.m_target_label[test]
+			for rr in range(ctr, rounds):
+				fn_train_iter = []
+				label_train_iter = []
 
-		for i in range(len(self.m_target_fn)):
-			if i not in l_idList:
-				# al_Target_fn.append(self.m_target_fn[i])
-				# al_Target_label.append(self.m_target_label[i])
-				al_Target_index.append(i)
+				if not p_idx:
+					fn_train_iter = self.m_target_fn[km_idx]
+					label_train_iter = self.m_target_label[km_idx]
 
-		np.random.shuffle(al_Target_index)
-		al_Target_num = len(al_Target_index)
-		print("active learning example num\t", al_Target_num)
-		trainNum = int(al_Target_num*0.9)
-		print("training num\t", trainNum)
+					# fn_train_iter = np.vstack((fn_train_iter, transfer_fn_train))
+					# label_train_iter = np.hstack((label_train_iter, transfer_label_train))
+				else:
+					fn_train_iter = self.m_target_fn[np.hstack((km_idx, p_idx))]
+					label_train_iter = np.hstack((self.m_target_label[km_idx], p_label))
 
-		al_Target_trainIndex = al_Target_index[:trainNum]
-		al_Target_testIndex = al_Target_index[trainNum:]
+					# fn_train_iter = np.vstack((fn_train_iter, transfer_fn_train))
+					# label_train_iter = np.hstack((label_train_iter, transfer_label_train))
 
-		al_Target_train_fn = self.m_target_fn[al_Target_trainIndex]
-		al_Target_train_label = self.m_target_label[al_Target_trainIndex]
+				self.clf.fit(fn_train_iter, label_train_iter)                        
+				idx, c_idx, = self.select_example(km_idx)                
+				km_idx.append(idx)
+				cl_id.append(c_idx) #track picked cluster id on each iteration
+				# ex_al.append([rr,key,v[0][-2],self.m_target_label[idx],raw_pt[idx]]) #for debugging
 
-		al_Target_test_fn = self.m_target_fn[al_Target_testIndex]
-		al_Target_test_label = self.m_target_label[al_Target_testIndex]
-		
-		print("train label set\t", set(al_Target_train_label))
-		print("test label set\t", set(al_Target_test_label))
+				self.update_tao(km_idx)
+				p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
+				
+				acc = self.get_pred_acc(fn_test, label_test,km_idx, p_idx, p_label)
+				self.acc_sum[rr] = (acc)
+				accList[cvIter].append(acc)
 
-		c = KMeans(init='k-means++', n_clusters=28, n_init=10)
-		c.fit(al_Target_train_fn)
-		dist = np.sort(c.transform(al_Target_train_fn))
+			print(accList[cvIter])
+		# f = open("al.txt", "w")
+		# for i in range(10):
+		# 	totalAlNum = len(accList[i])
+		# 	for j in range(totalAlNum):
+		# 		f.write(str(accList[i][j])+"\t")
+		# 	f.write("\n")
+		# f.close()
+				# print acc
+		# print debug
+			# print '# of p label', len(p_label)
+			# print cl_id
+			# if not p_label:
+			#     print 'p label acc', 0
+			#     p_acc.append(0)
+			# else:
+			#     print 'p label acc', sum(self.m_target_label[p_idx]==p_label)/float(len(p_label))
+			#     p_acc.append(sum(self.m_target_label[p_idx]==p_label)/float(len(p_label)))
+			# print '----------------------------------------------------'
+			# print '----------------------------------------------------'
 
-## i is the cluster id, j is the id of the instance, k is the distance
-#### ex: {clusterID:[instanceID, distance]}
-####ex_id: {clusterID:instanceID}
-###ex_Ns: {clusterID:number of instances}
+		# print 'class count of clf training ex:', ct(label_train)
+		# self.acc_sum = [i for i in self.acc_sum if i]
+		# print 'average acc:', [np.mean(i) for i in self.acc_sum]
+		# print 'average p label acc:', np.mean(p_acc)
 
-		ex = DD(list)
-		self.ex_id = DD(list)
-		ex_N = [] # num of examples in each C
-		for i,j,k in zip(c.labels_, al_Target_trainIndex, dist):
-			
-			ex[i].append([j,k[0]])
-			self.ex_id[i].append(int(j))
-		for i,j in ex.items():
-			ex[i] = sorted(j, key=lambda x: x[-1])
-			ex_N.append([i,len(ex[i])])
-		ex_N = sorted(ex_N, key=lambda x: x[-1],reverse=True)
+		# self.plot_confusion_matrix(label_test, fn_test)
 
-		km_idx = []
-		p_idx = []
-		p_label = []
-		p_dist = DD()
 
-		ctr = 0
-		for ee in ex_N:
-			c_idx = ee[0]
-			idx = ex[c_idx][0][0]
-			km_idx.append(idx)
-			ctr += 1
+if __name__ == "__main__":
+	mapping = {1:'co2',2:'humidity',4:'rmt',5:'status',6:'stpt',7:'flow',8:'HW sup',9:'HW ret',10:'CW sup',11:'CW ret',12:'SAT',13:'RAT',17:'MAT',18:'C enter',19:'C leave',21:'occu'}
 
-			if ctr < 3:
-				continue
 
-			self.update_tao(km_idx)
-			p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
+	raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('../data/rice_pt_sdh').readlines()]
+	tmp = np.genfromtxt('../data/rice_hour_sdh', delimiter=',')
+	target_label = tmp[:,-1]
+	print 'class count of true labels of all ex:\n', ct(target_label)
 
-			acc = self.get_pred_acc(al_Target_test_fn, al_Target_test_label, l_idList, km_idx, p_idx, p_label)
-			print acc
-			# print("acc\t", acc)
-			self.acc_sum[ctr-1] = acc
+	target_fn = get_name_features(raw_pt)
+	fold = 10
+	rounds = 100
 
-		cl_id = []
-		ex_al = []
-
-		rounds = self.rounds
-
-		tl_fn = self.m_target_fn[l_idList]
-		tl_label = self.m_target_label[l_idList]
-
-		for iterIndex in range(ctr, rounds):
-			# if not p_idx:
-			# 	fn_train = self.fn[km_idx]
-			if not p_idx:
-
-				fn_train = self.m_target_fn[np.hstack((l_idList, km_idx))]
-				label_train = self.m_target_label[np.hstack((l_idList, km_idx))]
-			else:
-				l_idList.extend(km_idx)
-				label_train = np.hstack((self.m_target_label[l_idList], p_label))
-				l_idList.extend(p_idx)
-				fn_train = self.m_target_fn[l_idList]
-			# fn_train = np.concatenate(fn_train, tl_fn)
-			# label_train = np.concatenate(label_train, tl_label)
-			# fn_train.append(tl_fn, axis=0)
-			# label_train.append(tl_label, axis=0)
-
-			self.clf.fit(fn_train, label_train)                        
-
-			idx, c_idx, = self.select_example(km_idx)
-			km_idx.append(idx)
-			cl_id.append(c_idx)
-
-			self.update_tao(km_idx)
-			p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
-
-			acc = self.get_pred_acc(al_Target_test_fn, al_Target_test_label, l_idList, km_idx, p_idx, p_label)
-
-			self.acc_sum[iterIndex] = acc
-			print acc
-			# print("acc\t", acc)
-		# print("acc\t", self.acc_sum)
-
-if __name__ == '__main__':
 	input1 = np.genfromtxt("../data/rice_hour_sdh", delimiter=",")
-	
+	fd1 = input1[:, 0:-1]
+	target_fd = fd1
+	target_label2 = input1[:,-1]
+
+
 	input2 = np.genfromtxt("../data/keti_hour_sum", delimiter=",")
 	input3 = np.genfromtxt("../data/sdh_hour_rice", delimiter=",")
-
 	input2 = np.vstack((input2, input3))
-
-	fd1 = input1[:, 0:-1]
 	fd2 = input2[:, 0:-1]
+	source_fd = fd2
+	source_label = input2[:,-1]
 
-	source_fd = fd1
-	target_fd = fd2
 
-	source_label = input1[:,-1]
-	target_label = input2[:,-1]
+	al = transferActiveLearning(fold, rounds, source_fd, source_label, target_fd, target_label, target_fn)
 
-	ptn = [i.strip().split("\\")[-1][:-5] for i in open("../data/rice_pt_sdh").readlines()]
-
-	target_fn = get_name_features(ptn)
-	print("len(target_fn)\t", len(target_fn))
-
-	tl = transferActiveLearning(source_fd, source_label, target_fd, target_label, target_fn, True)
-	tl.run()
+	al.run_CV()
