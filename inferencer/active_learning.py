@@ -35,6 +35,51 @@ def get_name_features(names):
         return fn
 
 class active_learning:
+    
+    def __init__(self, 	
+	target_building, 
+	target_srcids,
+	source_buildings=[],
+	exp_id=0, 
+	framework_name=None, 
+	config={},
+        fold,
+        rounds
+	):
+
+	super(FrameworkInterface, self).__init__()
+	self.exp_id = exp_id # an identifier for logging/debugging
+	self.framework_name = framework_name # e.g., Scarbble
+	self.config = config # future usage
+	#self.infer_g = rdflib.Graph() # future usage
+	self.training_srcids = set() # already known srcids
+	self.all_point_tagsets = point_tagsets # all the possible point tagsets 
+	# defined in Brick.
+	self.pred = { # predicted results
+	'tagsets': dict(),
+	'point': dict(),
+	}
+	self.target_srcids = target_srcids
+	self.history = [] # logging and visualization purpose
+	self.required_label_types = ['point', 'fullparsing'] # Future purpose
+
+        #Merged Initializations
+        self.fold = fold
+        self.rounds = rounds
+        self.acc_sum = [[] for i in xrange(self.rounds)] #acc per iter for each fold
+
+        #Added target building as a parameter to get raw_pt and tmp
+        raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('../data/' + target_building + '_pt').readlines()]
+        tmp = np.genfromtxt('../data/' + target_building + '_hour', delimiter=',')
+        self.fn = get_name_features(raw_pt)
+        self.label = tmp[:,-1]
+
+        self.tao = 0
+        self.alpha_ = 1
+
+        self.clf = LinearSVC()
+        self.ex_id = dd(list)
+
 
     def __init__(self, fold, rounds, fn, label):
 
