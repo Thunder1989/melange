@@ -33,7 +33,7 @@ class Inferencer(object):
         self.config = config # future usage
         #self.infer_g = rdflib.Graph() # future usage
         self.training_srcids = target_srcids # already known srcids
-        self.all_point_tagsets = point_tagsets # all the possible point tagsets
+        #self.all_point_tagsets = point_tagsets # all the possible point tagsets
                                                # defined in Brick.
         self.pred = {  # predicted results
             'tagsets': dict(),

@@ -22,7 +22,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix as CM
 from sklearn.preprocessing import normalize
 
-from .Inferencer import Inferencer
+from Inferencer import Inferencer
 
 def get_name_features(names):
 
@@ -218,7 +218,7 @@ class active_learning(Inferencer):
         pl.show()
 
 
-    def run_CV(self):
+    def learn_auto(self):
 
         kf = KFold(len(self.label), n_folds=self.fold, shuffle=True)
         p_acc = [] #pseudo self.label acc
@@ -284,12 +284,15 @@ class active_learning(Inferencer):
                 self.clf.fit(fn_train, label_train)
 
                 idx, c_idx, = self.select_example(km_idx)
+
+                '''update model starts'''
                 km_idx.append(idx)
                 cl_id.append(c_idx) #track picked cluster id on each iteration
                 # ex_al.append([rr,key,v[0][-2],self.label[idx],raw_pt[idx]]) #for debugging
 
                 self.update_tao(km_idx)
                 p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
+                '''updating ends'''
 
                 acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
                 self.acc_sum[rr].append(acc)
@@ -314,7 +317,6 @@ class active_learning(Inferencer):
 
 
 if __name__ == "__main__":
-
 
     mapping = {1:'co2',2:'humidity',4:'rmt',5:'status',6:'stpt',7:'flow',8:'HW sup',9:'HW ret',10:'CW sup',11:'CW ret',12:'SAT',13:'RAT',17:'MAT',18:'C enter',19:'C leave',21:'occu'}
 
