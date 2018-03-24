@@ -1,14 +1,4 @@
 import os
-import pdb
-
-import rdflib # May use faster rdf db instead.
-import arrow
-
-from ..db import *
-from ..brick_parser import pointTagsetList as point_tagsets
-from ..common import *
-from .. import plotter
-#from ..brick_parser import g as brick_g
 
 def exec_measurement(func):
     def wrapped(*args, **kwargs):
@@ -20,7 +10,7 @@ def exec_measurement(func):
     return wrapped
 
 
-class FrameworkInterface(object):
+class Inferencer(object):
     """
     # input parameters
     - target_building (str): name of the target building. this can be arbitrary later
@@ -31,18 +21,18 @@ class FrameworkInterface(object):
 
     def __init__(self,
                  target_building,
-                 target_srcids,
+                 target_srcids=set(),
                  source_buildings=[],
                  exp_id=0,
                  framework_name=None,
                  config={},
                  ):
-        super(FrameworkInterface, self).__init__()
+        super(Inferencer, self).__init__()
         self.exp_id = exp_id # an identifier for logging/debugging
         self.framework_name = framework_name # e.g., Scarbble
         self.config = config # future usage
         #self.infer_g = rdflib.Graph() # future usage
-        self.training_srcids = set() # already known srcids
+        self.training_srcids = target_srcids # already known srcids
         self.all_point_tagsets = point_tagsets # all the possible point tagsets
                                                # defined in Brick.
         self.pred = {  # predicted results

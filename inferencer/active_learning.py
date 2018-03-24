@@ -22,6 +22,8 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix as CM
 from sklearn.preprocessing import normalize
 
+from .Inferencer import Inferencer
+
 def get_name_features(names):
 
         name = []
@@ -34,34 +36,17 @@ def get_name_features(names):
 
         return fn
 
-class active_learning:
-    
-    def __init__(self, 	
-	target_building, 
-	target_srcids,
-	source_buildings=[],
-	exp_id=0, 
-	framework_name=None, 
-	config={},
+class active_learning(Inferencer):
+
+    def __init__(self,
+	target_building,
         fold,
         rounds
 	):
 
-	super(FrameworkInterface, self).__init__()
-	self.exp_id = exp_id # an identifier for logging/debugging
-	self.framework_name = framework_name # e.g., Scarbble
-	self.config = config # future usage
-	#self.infer_g = rdflib.Graph() # future usage
-	self.training_srcids = set() # already known srcids
-	self.all_point_tagsets = point_tagsets # all the possible point tagsets 
-	# defined in Brick.
-	self.pred = { # predicted results
-	'tagsets': dict(),
-	'point': dict(),
-	}
-	self.target_srcids = target_srcids
-	self.history = [] # logging and visualization purpose
-	self.required_label_types = ['point', 'fullparsing'] # Future purpose
+	super(active_learning, self).__init__(
+            target_building='rice'
+        )
 
         #Merged Initializations
         self.fold = fold
@@ -73,22 +58,6 @@ class active_learning:
         tmp = np.genfromtxt('../data/' + target_building + '_hour', delimiter=',')
         self.fn = get_name_features(raw_pt)
         self.label = tmp[:,-1]
-
-        self.tao = 0
-        self.alpha_ = 1
-
-        self.clf = LinearSVC()
-        self.ex_id = dd(list)
-
-
-    def __init__(self, fold, rounds, fn, label):
-
-        self.fold = fold
-        self.rounds = rounds
-        self.acc_sum = [[] for i in xrange(self.rounds)] #acc per iter for each fold
-
-        self.fn = fn
-        self.label = label
 
         self.tao = 0
         self.alpha_ = 1
@@ -173,7 +142,7 @@ class active_learning:
         rank = sorted(rank, key=lambda x: x[-1], reverse=True)
 
         if not rank:
-            raise ValueError('no clusters found in this iteration!')        
+            raise ValueError('no clusters found in this iteration!')
 
         c_idx = rank[0][0] #pick the 1st cluster on the rank, ordered by label entropy
         c_ex_id = self.ex_id[c_idx] #examples in the cluster picked
@@ -199,7 +168,7 @@ class active_learning:
 
         return idx, c_idx
 
-        
+
     def get_pred_acc(self, fn_test, label_test, labeled_set, pseudo_set, pseudo_label):
 
         if not pseudo_set:
@@ -312,16 +281,16 @@ class active_learning:
                     fn_train = self.fn[np.hstack((km_idx, p_idx))]
                     label_train = np.hstack((self.label[km_idx], p_label))
 
-                self.clf.fit(fn_train, label_train)                        
+                self.clf.fit(fn_train, label_train)
 
-                idx, c_idx, = self.select_example(km_idx)                
+                idx, c_idx, = self.select_example(km_idx)
                 km_idx.append(idx)
                 cl_id.append(c_idx) #track picked cluster id on each iteration
                 # ex_al.append([rr,key,v[0][-2],self.label[idx],raw_pt[idx]]) #for debugging
 
                 self.update_tao(km_idx)
                 p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
-                
+
                 acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
                 self.acc_sum[rr].append(acc)
 
@@ -346,17 +315,16 @@ class active_learning:
 
 if __name__ == "__main__":
 
-    raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('../data/rice_pt_soda').readlines()]
-    tmp = np.genfromtxt('../data/rice_hour_soda', delimiter=',')
-    label = tmp[:,-1]
-    print 'class count of true labels of all ex:\n', ct(label)
 
     mapping = {1:'co2',2:'humidity',4:'rmt',5:'status',6:'stpt',7:'flow',8:'HW sup',9:'HW ret',10:'CW sup',11:'CW ret',12:'SAT',13:'RAT',17:'MAT',18:'C enter',19:'C leave',21:'occu'}
 
-    fn = get_name_features(raw_pt)
     fold = 10
     rounds = 100
-    al = active_learning(fold, rounds, fn, label)
+    al = active_learning(
+        target_building='rice',
+        fold=fold,
+        rounds=rounds
+        )
 
     al.run_CV()
 
