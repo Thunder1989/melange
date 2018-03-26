@@ -9,6 +9,7 @@ import random
 import re
 import itertools
 import pylab as pl
+from scipy import stats
 
 from collections import defaultdict as dd
 from collections import Counter as ct
@@ -308,11 +309,10 @@ class transferActiveLearning:
 		# correct_pred_transfer = 0
 		# transfer_idList = []
 
-		judgerClassifier = LinearSVC()
-
 		judgerFeature = []
 		bcJudgerLabelMap = {} ##classifier: []
 		judgerLabel = []
+
 		class_ = np.unique(self.m_source_label)
 
 		delta = 0.5
@@ -344,70 +344,182 @@ class transferActiveLearning:
 				pr = b.predict_proba(fd_train[i].reshape(1,-1))
 				pred_pr = pred_pr + wi*pr
 			preds[i] = class_[np.argmax(pred_pr)]
-			   
+
+			for blIndex in range(len(self.bl)):
+				bl = self.bl[blIndex]
+				pr = bl.predict_proba(fd_train[i].reshape(1,-1))
+				predLabel = class_[np.argmax(pr)]
+
+				if blIndex not in bcJudgerLabelMap.keys():
+					bcJudgerLabelMap.setdefault(blIndex, [])
+				if predLabel == label_train[i]:
+					bcJudgerLabelMap[blIndex].append(1.0)
+				else:
+					bcJudgerLabelMap[blIndex].append(0.0)
 				# pred_transfer+=1.0
 				# transfer_idList.append(i)
-
 			if preds[i]==label_train[i]:
 				judgerLabel.append(1.0)
 			else:
 				judgerLabel.append(0.0)
 
-			judgerFeature.append(fd_train[i])
+			judgerFeature.append(fn_train[i])
 
 		judgerFeature = np.array(judgerFeature)
 		judgerLabel = np.array(judgerLabel)
 
+		accMap = {}
+		precisionMap = {}
+		recallMap = {}
+
+		posLabelNumMap = {}
+		if 0 not in posLabelNumMap.keys():
+			posLabelNumMap.setdefault(0, [])
+
+		if 1 not in posLabelNumMap.keys():
+			posLabelNumMap.setdefault(1, [])
+
+		if 2 not in posLabelNumMap.keys():
+			posLabelNumMap.setdefault(2, [])
+
+		if 4 not in posLabelNumMap.keys():
+			posLabelNumMap.setdefault(4, [])
+
+
 		for cvIter in range(10):
-			print("cvIter...\t", cvIter)
+			print("##########cvIter...\t", cvIter)
 			np.random.shuffle(indexList)
 
 			trainNum = int(totalInstanceNum*0.9)
 			train = indexList[:trainNum]
 			test = indexList[trainNum:]
 
+			# print("train\t", train)
+			# print("test\t", test)
+
 			judgerFeature_train = judgerFeature[train]
-			judgerLabel_train = judgerLabel[train]
+			judgerLabel_train = judgerLabel[train]	
 
 			judgerFeature_test = judgerFeature[test]
 			judgerLabel_test = judgerLabel[test]
 
-			judgerClassifier.fit(judgerFeature_train, judgerLabel_train)
-			predictUseList = judgerClassifier.predict(judgerFeature_test)
+			print("mix of classifier")
+			print(stats.itemfreq(judgerLabel_test))
 
-			predNum = len(predictUseList)
-			judgerAcc = 0.0
-			judgerPrecision = 0.0
-			judgerRecall = 0.0
+			posLabelNumMap[4].append(stats.itemfreq(judgerLabel_test)[1][1])
 
-			judgerTP = 0.0
-			judgerFP = 0.0
-			judgerTN = 0.0
-			judgerFN = 0.0
+			self.calMetric4BC(accMap, precisionMap, recallMap, 4, judgerFeature_train, judgerLabel_train, judgerFeature_test, judgerLabel_test)
+			
+			print("====random forest===")
+			rfLabel = np.array(bcJudgerLabelMap[0])
+			print(stats.itemfreq(rfLabel[test]))
+			posLabelNumMap[0].append(stats.itemfreq(rfLabel[test])[1][1])
+			self.calMetric4BC(accMap, precisionMap, recallMap, 0, judgerFeature_train,rfLabel[train], judgerFeature_test, rfLabel[test])
 
-			for predIndex in range(predNum):
-				predUse = predictUseList[predIndex]
-				if predUse == judgerLabel_test[predIndex]:
-					if predUse == 1.0:
-						judgerTP += 1.0
-					else:
-						judgerTN += 1.0
+			print("====logistic regression===")
+			lrLabel = np.array(bcJudgerLabelMap[1])
+			print(stats.itemfreq(lrLabel[test]))
+			posLabelNumMap[1].append(stats.itemfreq(lrLabel[test])[1][1])
+			self.calMetric4BC(accMap, precisionMap, recallMap, 1, judgerFeature_train, lrLabel[train], judgerFeature_test, lrLabel[test])
 
+			print("====SVM=====")
+			svmLabel = np.array(bcJudgerLabelMap[2])
+			print(stats.itemfreq(svmLabel[test]))
+			posLabelNumMap[2].append(stats.itemfreq(svmLabel[test])[1][1])
+			self.calMetric4BC(accMap, precisionMap, recallMap, 2, judgerFeature_train, svmLabel[train], judgerFeature_test, svmLabel[test])
+
+		print("mix classifier")
+		totalTestNum = totalInstanceNum-int(totalInstanceNum*0.9)
+		print(totalTestNum)
+		posLabelNumMap[4] = np.array(posLabelNumMap[4])*1.0/(totalTestNum)
+		print("probability of positive labels", np.mean(posLabelNumMap[4]), "+/-", np.sqrt(np.var(posLabelNumMap[4])))
+		print("acc\t", np.mean(accMap[4]), "+/-", np.sqrt(np.var(accMap[4])))
+		print("precision\t", np.mean(precisionMap[4]), "+/-", np.sqrt(np.var(precisionMap[4])))
+		print("recall\t", np.mean(recallMap[4]), "+/-", np.sqrt(np.var(recallMap[4])))
+
+		print("random forest")
+		posLabelNumMap[0] = np.array(posLabelNumMap[0])*1.0/(totalInstanceNum-int(totalInstanceNum*0.9))
+		print("probability of positive labels", np.mean(posLabelNumMap[0]), "+/-", np.sqrt(np.var(posLabelNumMap[0])))		
+		print("acc\t", np.mean(accMap[0]), "+/-", np.sqrt(np.var(accMap[0])))
+		print("precision\t", np.mean(precisionMap[0]), "+/-", np.sqrt(np.var(precisionMap[0])))
+		print("recall\t", np.mean(recallMap[0]), "+/-", np.sqrt(np.var(recallMap[0])))
+
+		print("logistic regression")
+		posLabelNumMap[1] = np.array(posLabelNumMap[1])*1.0/(totalInstanceNum-int(totalInstanceNum*0.9))
+		print("probability of positive labels", np.mean(posLabelNumMap[1]), "+/-", np.sqrt(np.var(posLabelNumMap[1])))		
+		print("acc\t", np.mean(accMap[1]), "+/-", np.sqrt(np.var(accMap[1])))
+		print("precision\t", np.mean(precisionMap[1]), "+/-", np.sqrt(np.var(precisionMap[1])))
+		print("recall\t", np.mean(recallMap[1]), "+/-", np.sqrt(np.var(recallMap[1])))
+
+		print("SVM")
+		posLabelNumMap[2] = np.array(posLabelNumMap[2])*1.0/(totalInstanceNum-int(totalInstanceNum*0.9))
+		print("probability of positive labels", np.mean(posLabelNumMap[2]), "+/-", np.sqrt(np.var(posLabelNumMap[2])))
+		print("acc\t", np.mean(accMap[2]), "+/-", np.sqrt(np.var(accMap[2])))
+		print("precision\t", np.mean(precisionMap[2]), "+/-", np.sqrt(np.var(precisionMap[2])))
+		print("recall\t", np.mean(recallMap[2]), "+/-", np.sqrt(np.var(recallMap[2])))
+			
+
+	def calMetric4BC(self, accMap, precisionMap, recallMap, classifierIndex, feature_train, label_train, feature_test, label_test):
+		judgerClassifier = SVC()
+		# judgerClassifier = LR()
+		# judgerClassifier = LinearSVC()
+		# judgerClassifier = RFC()
+
+		judgerClassifier.fit(feature_train, label_train)
+		predictUseList = judgerClassifier.predict(feature_test)
+
+		predNum = len(predictUseList)
+		judgerAcc = 0.0
+		judgerPrecision = 0.0
+		judgerRecall = 0.0
+
+		judgerTP = 0.0
+		judgerFP = 0.0
+		judgerTN = 0.0
+		judgerFN = 0.0
+
+		if classifierIndex == 2:
+			print("predictUseList", predictUseList)
+
+		for predIndex in range(predNum):
+			predUse = predictUseList[predIndex]
+			if predUse == label_test[predIndex]:
+				if predUse == 1.0:
+					judgerTP += 1.0
 				else:
-					if predUse == 1.0:
-						judgerFP += 1.0
-					else:
-						judgerFN += 1.0
+					judgerTN += 1.0
 
-			judgerAcc = (judgerTP+judgerTN)/predNum
-			print("judgerAcc\t", judgerAcc)
+			else:
+				if predUse == 1.0:
+					judgerFP += 1.0
+				else:
+					judgerFN += 1.0
 
+		if classifierIndex not in accMap.keys():
+			accMap.setdefault(classifierIndex, [])
+
+		judgerAcc = (judgerTP+judgerTN)/predNum
+		# print("judgerAcc\t", judgerAcc)
+
+		accMap[classifierIndex].append(judgerAcc)
+
+		if classifierIndex not in precisionMap.keys():
+			precisionMap.setdefault(classifierIndex, [])
+
+		judgerPrecision = 0.0
+		if (judgerTP+judgerFP) > 0:
 			judgerPrecision = judgerTP/(judgerTP+judgerFP)
-			print("judgerPrecision\t", judgerPrecision)
+		# print("judgerPrecision\t", judgerPrecision)
 
-			judgerRecall = judgerTP/(judgerTP+judgerFN)
-			print("judgerRecall\t", judgerRecall)
+		precisionMap[classifierIndex].append(judgerPrecision)
 
+		if classifierIndex not in recallMap.keys():
+			recallMap.setdefault(classifierIndex, [])
+
+		judgerRecall = judgerTP/(judgerTP+judgerFN)
+		# print("judgerRecall\t", judgerRecall)
+
+		recallMap[classifierIndex].append(judgerRecall)
 			# print("acc transfer\t", correct_pred_transfer/pred_transfer)
 
 			# transfer_idList = []
