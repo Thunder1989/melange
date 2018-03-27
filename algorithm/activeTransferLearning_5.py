@@ -2,12 +2,12 @@
 active transfer learning we use the lower bound to estimate whether we should trust the classifer or not.  
 """
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import math
 import random
 import re
 import itertools
-import pylab as pl
+# import pylab as pl
 
 from collections import defaultdict as dd
 from collections import Counter as ct
@@ -74,6 +74,8 @@ class transferActiveLearning:
 		label_train_tao = np.array(al_tl_label_train)
 
 		indexList_tao = [i for i in range(len(label_train_tao))]
+
+		print("num instance\t", len(label_train_tao))
 
 		pair = list(itertools.combinations(indexList_tao,2))
 
@@ -154,6 +156,8 @@ class transferActiveLearning:
 		sub_label = sub_pred[c_idx] #used when choosing cluster by H
 		sub_fn = self.m_target_fn[c_ex_id]
 
+		print("c_idx\t", c_idx)
+
 		#sub-cluster the cluster
 		c_ = KMeans(init='k-means++', n_clusters=len(np.unique(sub_label)), n_init=10)
 		c_.fit(sub_fn)
@@ -170,6 +174,8 @@ class transferActiveLearning:
 
 				idx = v[0][0]
 				break
+
+		print("idx\t", idx)
 
 		return idx, c_idx
 
@@ -403,7 +409,7 @@ class transferActiveLearning:
 				
 				transferLabelFlag, label_transfer = self.transferOrNot(activeLabelNum, idx)
 				
-				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
+				print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag, idx)
 				# transferLabelFlag = False
 				if transferLabelFlag:
 					##transfer
