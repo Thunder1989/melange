@@ -253,7 +253,7 @@ class active_learning:
 
                 acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
                 self.acc_sum[ctr-1].append(acc)
-                print acc
+                # print acc
                 # print("acc\t", acc)
 
             cl_id = [] #track cluster id on each iter
@@ -282,8 +282,8 @@ class active_learning:
                 acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
                 self.acc_sum[rr].append(acc)
 
-                print acc
-            print debug
+                # print acc
+            # print debug
             # print '# of p label', len(p_label)
             # print cl_id
             # if not p_label:
@@ -298,6 +298,8 @@ class active_learning:
         print 'class count of clf training ex:', ct(label_train)
         self.acc_sum = [i for i in self.acc_sum if i]
         print 'average acc:', [np.mean(i) for i in self.acc_sum]
+        print 'average var:', [np.var(i) for i in self.acc_sum]
+
         print 'average p label acc:', np.mean(p_acc)
 
         self.plot_confusion_matrix(label_test, fn_test)

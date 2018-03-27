@@ -427,6 +427,10 @@ class transferActiveLearning:
 
 				transferLabelFlag, label_transfer = self.askTransferLearner(transferLearnerThreshold, class_, nb_c_transfer, nb_f_transfer, idx, p_idx, p_label)
 				# label, conf = self.askTransferLearner(idx)
+
+				
+
+
 				if not transferLabelFlag:
 					##active learning
 					activeLabelNum += 1.0

@@ -2,6 +2,8 @@
 In this setting, transfer learning serves as a weak oracle and is utilized in the framework of active learning
 cluster together and ask for both active learning and transfer learning
 we use judgeClassifier to help us select instance when querying for label
+When the number of labels go beyond a threshold, we seek transfer learn for help.
+output those labels of transfer learning
 """
 
 import numpy as np
@@ -258,35 +260,40 @@ class transferActiveLearning:
 ###4. if not 3, active learning can label
 	
 	def askTransferLearner(self, transferLearnerThreshold, class_, nb_c_transfer, nb_f_transfer, idx, p_idx, p_label):
-		pred = 0
 
-		predMap = {}
-		for wi, b in zip(w, self.bl):
-			pr = b.predict_proba(self.m_target_fd[idx].reshape(1, -1))
-			predLabel = class_[np.argmax(pr)]
+		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))
 
-			if predLabel not in predMap.keys():
-				predMap.setdefault(predLabel, 0)
+		# predProb = self.bl[0].predict_proba(self.m_target_fd[idx].reshape(1, -1)) 
+		# predLabel = class_[np.argmax(predProb)]
 
-			predMap[predLabel] += 1.0
+		return predLabel
+
+		# predMap = {}
+		# for wi, b in zip(w, self.bl):
+		# 	pr = b.predict_proba(self.m_target_fd[idx].reshape(1, -1))
+		# 	predLabel = class_[np.argmax(pr)]
+
+		# 	if predLabel not in predMap.keys():
+		# 		predMap.setdefault(predLabel, 0)
+
+		# 	predMap[predLabel] += 1.0
 	
-		if idx in p_idx:
-			labelIndex = p_idx.index(idx)
-			propagatedLabel = p_label[labelIndex]
+		# if idx in p_idx:
+		# 	labelIndex = p_idx.index(idx)
+		# 	propagatedLabel = p_label[labelIndex]
 
-			if propagatedLabel not in predMap.keys():
-				predMap.setdefault(propagatedLabel, 0)
-			predMap[propagatedLabel] += 1.0
+		# 	if propagatedLabel not in predMap.keys():
+		# 		predMap.setdefault(propagatedLabel, 0)
+		# 	predMap[propagatedLabel] += 1.0
 
-		predList = sorted(predMap, key=predMap.__getitem__, reverse=True)
+		# predList = sorted(predMap, key=predMap.__getitem__, reverse=True)
 
-		pred = predList[0]
+		# pred = predList[0]
 
-		if idx in p_idx:
-			if pred != propagatedLabel:
-				print("not propagatedLabel in transfer learning")
+		# if idx in p_idx:
+		# 	if pred != propagatedLabel:
+		# 		print("not propagatedLabel in transfer learning")
 
-		return pred
 		# pred = 0
 		# w = []
 		# v_c = set(nb_c_transfer[idx])
@@ -319,6 +326,28 @@ class transferActiveLearning:
 		# else:
 		# 	return False, pred
 
+	def transferOrNot(self, transferFeatureList, transferLabelList, activeLabelNum, idx):
+		labelNumThreshold = 20
+
+		if activeLabelNum < labelNumThreshold:
+			predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))
+			# if predLabel == self.m_target_label[idx]:
+			# 	transferLabelList.append(1.0)
+			# 	transferFeatureList.append(self.m_target_fn[idx])
+			# else:
+			# 	transferLabelList.append(0.0)
+			# 	transferFeatureList.append(self.m_target_fn[idx])
+			# self.judgeClassifier.fit(np.array(transferFeatureList), np.array(transferLabelList))
+			return False, predLabel
+
+		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))
+		transferFlag = self.judgeClassifier.predict(self.m_target_fn[idx].reshape(1, -1))
+		if transferFlag == 1:
+			return True, predLabel
+		else:
+			## when false, we could add more feature and label to estimate the judgeClassifier
+			return False, predLabel
+
 	def run_CV(self):
 
 		totalInstanceNum = len(self.m_target_label)
@@ -328,6 +357,7 @@ class transferActiveLearning:
 
 		totalAccList = [[] for i in range(10)]
 		for cvIter in range(10):
+			self.judgeClassifier = LR()
 			print("cvIter...\t",cvIter)
 			trainNum = int(totalInstanceNum*0.9)
 			train = indexList[:trainNum]
@@ -410,9 +440,11 @@ class transferActiveLearning:
 			al_tl_label_train = []
 			al_tl_fn_train = []
 
+			transferFeatureList = []
+			transferLabelList = []
 			transferLabelNum = 0
-			transfer_label_train = []
-			transfer_fn_train = [] ###track ids of instances labeled by transfer learning
+			# transfer_label_train = []
+			# transfer_fn_train = [] ###track ids of instances labeled by transfer learning
 
 			active_label_train = []
 			active_fn_train = []
@@ -424,23 +456,35 @@ class transferActiveLearning:
 
 				label_idx = 0
 
-				transferLabelFlag, label_transfer = self.askTransferLearner(transferLearnerThreshold, class_, nb_c_transfer, nb_f_transfer, idx, p_idx, p_label)
-				# label, conf = self.askTransferLearner(idx)
-				if not transferLabelFlag:
-					##active learning
-					activeLabelNum += 1.0
-					activeLabelFlag = True
-					label_idx = self.m_target_label[idx]
-					al_tl_label_train.append(self.m_target_label[idx])
-					al_tl_fn_train.append(self.m_target_fn[idx])
-				else:
-					## transfer learning
+				if len(np.unique(transferLabelList)) > 1:
+					self.judgeClassifier.fit(np.array(transferFeatureList), np.array(transferLabelList))
+				
+				transferLabelFlag, label_transfer = self.transferOrNot(transferFeatureList, transferLabelList, activeLabelNum, idx)
+
+				if transferLabelFlag:
+					# label_transfer = self.askTransferLearner(transferLearnerThreshold, class_, nb_c_transfer, nb_f_transfer, idx, p_idx, p_label)
 					transferLabelNum += 1.0
 					activeLabelFlag = False
 					label_idx = label_transfer
 					al_tl_label_train.append(label_transfer)
 					al_tl_fn_train.append(self.m_target_fn[idx])
+				# label, conf = self.askTransferLearner(idx)
+				else:
+					##active learning
 
+					activeLabelNum += 1.0
+					activeLabelFlag = True
+					label_idx = self.m_target_label[idx]
+					if label_transfer == label_idx:
+						transferLabelList.append(1.0)
+						transferFeatureList.append(self.m_target_fn[idx])
+					else:
+						transferLabelList.append(0.0)
+						transferFeatureList.append(self.m_target_fn[idx])
+					al_tl_label_train.append(self.m_target_label[idx])
+					al_tl_fn_train.append(self.m_target_fn[idx])
+					## transfer learning
+					
 				km_idx.append(idx)
 				ctr+=1
 
@@ -512,13 +556,27 @@ class transferActiveLearning:
 
 				activeLabelFlag = False
 				label_idx = 0
-				transferLabelFlag, label_transfer = self.askTransferLearner(transferLearnerThreshold, class_, nb_c_transfer, nb_f_transfer, idx)			
+
+				if len(np.unique(transferLabelList)) > 1:
+					self.judgeClassifier.fit(np.array(transferFeatureList), np.array(transferLabelList))
+				
+				transferLabelFlag, label_transfer = self.transferOrNot(transferFeatureList, transferLabelList, activeLabelNum, idx)
+
+				# transferLabelFlag, label_transfer = self.askTransferLearner(transferLearnerThreshold, class_, nb_c_transfer, nb_f_transfer, idx)			
 
 				if not transferLabelFlag:
 					##active 
 					activeLabelNum += 1.0
 					activeLabelFlag = True
 					label_idx = self.m_target_label[idx]
+
+					if label_transfer == label_idx:
+						transferLabelList.append(1.0)
+						transferFeatureList.append(self.m_target_fn[idx])
+					else:
+						transferLabelList.append(0.0)
+						transferFeatureList.append(self.m_target_fn[idx])
+
 					al_tl_label_train.append(self.m_target_label[idx])
 					al_tl_fn_train.append(self.m_target_fn[idx])
 				else:
@@ -551,7 +609,7 @@ class transferActiveLearning:
 
 				# accList.append(acc)
 			print("transferLabelNum\t", transferLabelNum)
-		f = open("al_tl_09.txt", "w")
+		f = open("al_tl_2.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])
 			for j in range(totalAlNum):
