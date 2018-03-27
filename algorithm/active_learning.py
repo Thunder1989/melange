@@ -128,7 +128,7 @@ class active_learning:
         rank = sorted(rank, key=lambda x: x[-1], reverse=True)
 
         if not rank:
-            raise ValueError('no clusters found in this iteration!')        
+            raise ValueError('no clusters found in this iteration!')
 
         c_idx = rank[0][0] #pick the 1st cluster on the rank, ordered by label entropy
         c_ex_id = self.ex_id[c_idx] #examples in the cluster picked
@@ -150,11 +150,13 @@ class active_learning:
             if v[0][0] not in labeled_set: #find the first unlabeled ex
 
                 idx = v[0][0]
+                c_ex_id.remove(idx) #update the training set by removing selected ex id
+                self.ex_id[c_idx] = c_ex_id
                 break
 
         return idx, c_idx
 
-        
+
     def get_pred_acc(self, fn_test, label_test, labeled_set, pseudo_set, pseudo_label):
 
         if not pseudo_set:
@@ -251,9 +253,15 @@ class active_learning:
 
                 p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
 
-                acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
+                try:
+                    acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
+                except Exception as e:
+                    exc_type, exc_obj, exc_tb = sys.exc_info()
+                    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                    print exc_type, e.args, fname, 'on line ' + str(exc_tb.tb_lineno)
+                    acc = np.nan
+
                 self.acc_sum[ctr-1].append(acc)
-                # print acc
                 # print("acc\t", acc)
 
             cl_id = [] #track cluster id on each iter
@@ -269,20 +277,21 @@ class active_learning:
                     fn_train = self.fn[np.hstack((km_idx, p_idx))]
                     label_train = np.hstack((self.label[km_idx], p_label))
 
-                self.clf.fit(fn_train, label_train)                        
+                self.clf.fit(fn_train, label_train)
 
-                idx, c_idx, = self.select_example(km_idx)                
+                idx, c_idx, = self.select_example(km_idx)
                 km_idx.append(idx)
                 cl_id.append(c_idx) #track picked cluster id on each iteration
                 # ex_al.append([rr,key,v[0][-2],self.label[idx],raw_pt[idx]]) #for debugging
 
                 self.update_tao(km_idx)
                 p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
-                
+
                 acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
                 self.acc_sum[rr].append(acc)
 
                 # print acc
+
             # print debug
             # print '# of p label', len(p_label)
             # print cl_id
@@ -297,8 +306,8 @@ class active_learning:
 
         print 'class count of clf training ex:', ct(label_train)
         self.acc_sum = [i for i in self.acc_sum if i]
-        print 'average acc:', [np.mean(i) for i in self.acc_sum]
-        print 'average var:', [np.var(i) for i in self.acc_sum]
+        print 'average acc:', [np.nanmean(i) for i in self.acc_sum]
+        print 'average var:', [np.nanvar(i) for i in self.acc_sum]
 
         print 'average p label acc:', np.mean(p_acc)
 
