@@ -66,6 +66,7 @@ class transferActiveLearning:
 		self.ex_id = dd(list)
 
 		self.judgeClassifier = LR()
+		self.m_cbRate = 0.01
 
 	def update_tao(self, al_tl_fn_train, al_tl_label_train):
 
@@ -77,7 +78,6 @@ class transferActiveLearning:
 
 		pair = list(itertools.combinations(indexList_tao,2))
 
-		print("num pair\t", len(pair))
 		for p in pair:
 			if label_train_tao[p[0]] != label_train_tao[p[1]]:
 				d = np.linalg.norm(fn_train_tao[p[0]]-fn_train_tao[p[1]])
@@ -214,19 +214,40 @@ class transferActiveLearning:
 		for b in self.bl:
 			b.fit(self.m_source_fd, self.m_source_label) #train each base classifier
 	
-	def transferOrNot(self, activeLabelNum, idx):
-		labelNumThreshold = 20
+	def initConfidenceBound(self, _lambda, featureDim):
+		self.m_A = _lambda*np.identity(featureDim)
 
-		if activeLabelNum < labelNumThreshold:
-			predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))
-			return False, predLabel
+		self.m_AInv = np.linalg.inv(self.A)
 
-		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))
+	def updateConfidenceBound(self, idx):
+		self.m_A += np.outer(self.m_target_fn[idx], m_target_fn[idx])
+		self.m_AInv = np.linalg.inv(self.m_A)
+
+	def getConfidenceBound(self, idx):
+
+		CB = np.sqrt(np.dot(np.dot(self.m_target_fn[idx], self.m_AInv), self.m_target_fn[idx]))
+
+		return CB
+
+	def transferOrNot(self, idx):
+		transferThreshold = 0.5
+
+		###judge correct prob 
+		transferProb = self.judgeClassifier.predict(self.m_target_fn[idx].reshape(1, -1))[1]
 		transferFlag = self.judgeClassifier.predict(self.m_target_fn[idx].reshape(1, -1))
-		if transferFlag == 1:
+
+##upper bound
+		UCB = self.getConfidenceBound(idx)
+		UCB = transferProb - self.m_cbRate*UCB
+##low bound
+		LCB = self.getConfidenceBound(idx)
+		LCB = transferProb - self.m_cbRate*LCB
+		
+		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))
+
+		if LCB >= transferThreshold:
 			return True, predLabel
 		else:
-			## when false, we could add more feature and label to estimate the judgeClassifier
 			return False, predLabel
 
 	def run_CV(self):
@@ -304,6 +325,10 @@ class transferActiveLearning:
 
 			queryIteration = 0 
 
+			_lambda = 0.01
+			featureDim = len(fn_train[0])
+			self.initConfidenceBound(_lambda, featureDim)
+
 			for ee in ex_N:
 				activeLabelFlag = False
 				c_idx = ee[0] #cluster id
@@ -314,9 +339,13 @@ class transferActiveLearning:
 				if len(np.unique(transferFlagList)) > 1:
 					self.judgeClassifier.fit(np.array(transferFeatureList), np.array(transferFlagList))
 				
-				transferLabelFlag, label_transfer = self.transferOrNot(activeLabelNum, idx)
+				# transferLabelFlag, label_transfer = self.transferOrNot(activeLabelNum, idx)
 				# transferLabelFlag = False
 				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
+
+				transferLabelFlag, label_transfer = self.transferOrNot(idx)
+				self.updateConfidenceBound(idx)
+
 				if transferLabelFlag:
 
 					transferLabelNum += 1.0
@@ -401,8 +430,8 @@ class transferActiveLearning:
 				if len(np.unique(transferFlagList)) > 1:
 					self.judgeClassifier.fit(np.array(transferFeatureList), np.array(transferFlagList))
 				
-				transferLabelFlag, label_transfer = self.transferOrNot(activeLabelNum, idx)
-				
+				transferLabelFlag, label_transfer = self.transferOrNot(idx)
+				self.updateConfidenceBound(idx)				
 				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
 				# transferLabelFlag = False
 				if transferLabelFlag:
