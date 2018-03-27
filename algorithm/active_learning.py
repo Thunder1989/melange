@@ -151,7 +151,11 @@ class active_learning:
 
                 idx = v[0][0]
                 c_ex_id.remove(idx) #update the training set by removing selected ex id
-                self.ex_id[c_idx] = c_ex_id
+
+                if len(c_ex_id) == 0:
+                    self.ex_id.pop(c_idx)
+                else:
+                    self.ex_id[c_idx] = c_ex_id
                 break
 
         return idx, c_idx

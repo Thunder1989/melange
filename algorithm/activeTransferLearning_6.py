@@ -128,7 +128,7 @@ class transferActiveLearning:
 			self.ex_id[cluster_id] = tmp
 
 		return p_idx, p_label, p_dist
-
+	
 	def select_example(self, labeled_set):
 
 		sub_pred = dd(list) #Mn predicted labels for each cluster
@@ -147,7 +147,7 @@ class transferActiveLearning:
 		rank = sorted(rank, key=lambda x: x[-1], reverse=True)
 
 		if not rank:
-			raise ValueError('no clusters found in this iteration!')        
+			raise ValueError('no clusters found in this iteration!')
 
 		c_idx = rank[0][0] #pick the 1st cluster on the rank, ordered by label entropy
 		c_ex_id = self.ex_id[c_idx] #examples in the cluster picked
@@ -169,6 +169,12 @@ class transferActiveLearning:
 			if v[0][0] not in labeled_set: #find the first unlabeled ex
 
 				idx = v[0][0]
+				c_ex_id.remove(idx) #update the training set by removing selected ex id
+
+				if len(c_ex_id) == 0:
+					self.ex_id.pop(c_idx)
+				else:
+					self.ex_id[c_idx] = c_ex_id
 				break
 
 		return idx, c_idx
@@ -217,10 +223,10 @@ class transferActiveLearning:
 	def initConfidenceBound(self, _lambda, featureDim):
 		self.m_A = _lambda*np.identity(featureDim)
 
-		self.m_AInv = np.linalg.inv(self.A)
+		self.m_AInv = np.linalg.inv(self.m_A)
 
 	def updateConfidenceBound(self, idx):
-		self.m_A += np.outer(self.m_target_fn[idx], m_target_fn[idx])
+		self.m_A += np.outer(self.m_target_fn[idx], self.m_target_fn[idx])
 		self.m_AInv = np.linalg.inv(self.m_A)
 
 	def getConfidenceBound(self, idx):
@@ -229,11 +235,18 @@ class transferActiveLearning:
 
 		return CB
 
-	def transferOrNot(self, idx):
+	def transferOrNot(self, transferFeatureList, transferFlagList, idx):
 		transferThreshold = 0.5
 
+		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))
+
+		if len(np.unique(transferFlagList)) > 1:
+			self.judgeClassifier.fit(np.array(transferFeatureList), np.array(transferFlagList))
+		else:
+			return False, predLabel
 		###judge correct prob 
-		transferProb = self.judgeClassifier.predict(self.m_target_fn[idx].reshape(1, -1))[1]
+		transferProb = self.judgeClassifier.predict_proba(self.m_target_fn[idx].reshape(1, -1))[0][1]
+		print("transferProb\t", transferProb)
 		transferFlag = self.judgeClassifier.predict(self.m_target_fn[idx].reshape(1, -1))
 
 ##upper bound
@@ -242,8 +255,6 @@ class transferActiveLearning:
 ##low bound
 		LCB = self.getConfidenceBound(idx)
 		LCB = transferProb - self.m_cbRate*LCB
-		
-		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))
 
 		if LCB >= transferThreshold:
 			return True, predLabel
@@ -335,15 +346,12 @@ class transferActiveLearning:
 				idx = ex[c_idx][0][0] #id of ex closest to centroid of cluster
 
 				label_idx = 0
-
-				if len(np.unique(transferFlagList)) > 1:
-					self.judgeClassifier.fit(np.array(transferFeatureList), np.array(transferFlagList))
 				
 				# transferLabelFlag, label_transfer = self.transferOrNot(activeLabelNum, idx)
 				# transferLabelFlag = False
 				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
 
-				transferLabelFlag, label_transfer = self.transferOrNot(idx)
+				transferLabelFlag, label_transfer = self.transferOrNot(transferFeatureList, transferFlagList, idx)
 				self.updateConfidenceBound(idx)
 
 				if transferLabelFlag:
@@ -427,10 +435,10 @@ class transferActiveLearning:
 				activeLabelFlag = False
 				label_idx = 0
 
-				if len(np.unique(transferFlagList)) > 1:
-					self.judgeClassifier.fit(np.array(transferFeatureList), np.array(transferFlagList))
+				# if len(np.unique(transferFlagList)) > 1:
+				# 	self.judgeClassifier.fit(np.array(transferFeatureList), np.array(transferFlagList))
 				
-				transferLabelFlag, label_transfer = self.transferOrNot(idx)
+				transferLabelFlag, label_transfer = self.transferOrNot(transferFeatureList, transferFlagList, idx)
 				self.updateConfidenceBound(idx)				
 				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
 				# transferLabelFlag = False
@@ -474,7 +482,7 @@ class transferActiveLearning:
 			print("transferLabelNum\t", transferLabelNum)
 			# print(debug)
 			cvIter += 1
-		f = open("al_tl_judge_5.txt", "w")
+		f = open("al_tl_judge_6.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])
 			for j in range(totalAlNum):

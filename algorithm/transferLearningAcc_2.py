@@ -386,7 +386,7 @@ class transferActiveLearning:
 		if 4 not in posLabelNumMap.keys():
 			posLabelNumMap.setdefault(4, [])
 
-		trainingRatio = 0.1
+		trainingRatio = 0.03
 		for cvIter in range(10):
 			print("##########cvIter...\t", cvIter)
 			np.random.shuffle(indexList)

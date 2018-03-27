@@ -75,11 +75,11 @@ class transferActiveLearning:
 
 		indexList_tao = [i for i in range(len(label_train_tao))]
 
-		print("num instance\t", len(label_train_tao))
+		# print("num instance\t", len(label_train_tao))
 
 		pair = list(itertools.combinations(indexList_tao,2))
 
-		print("num pair\t", len(pair))
+		# print("num pair\t", len(pair))
 		for p in pair:
 			if label_train_tao[p[0]] != label_train_tao[p[1]]:
 				d = np.linalg.norm(fn_train_tao[p[0]]-fn_train_tao[p[1]])
@@ -149,14 +149,12 @@ class transferActiveLearning:
 		rank = sorted(rank, key=lambda x: x[-1], reverse=True)
 
 		if not rank:
-			raise ValueError('no clusters found in this iteration!')        
+			raise ValueError('no clusters found in this iteration!')
 
 		c_idx = rank[0][0] #pick the 1st cluster on the rank, ordered by label entropy
 		c_ex_id = self.ex_id[c_idx] #examples in the cluster picked
 		sub_label = sub_pred[c_idx] #used when choosing cluster by H
 		sub_fn = self.m_target_fn[c_ex_id]
-
-		print("c_idx\t", c_idx)
 
 		#sub-cluster the cluster
 		c_ = KMeans(init='k-means++', n_clusters=len(np.unique(sub_label)), n_init=10)
@@ -173,9 +171,17 @@ class transferActiveLearning:
 			if v[0][0] not in labeled_set: #find the first unlabeled ex
 
 				idx = v[0][0]
+				c_ex_id.remove(idx) #update the training set by removing selected ex id
+
+				if len(c_ex_id) == 0:
+					self.ex_id.pop(c_idx)
+				else:
+					self.ex_id[c_idx] = c_ex_id
 				break
 
-		print("idx\t", idx)
+		if idx == 0:
+			print("c_ex_id\t", c_ex_id)
+			print("labeled\t", labeled_set)
 
 		return idx, c_idx
 
@@ -409,7 +415,7 @@ class transferActiveLearning:
 				
 				transferLabelFlag, label_transfer = self.transferOrNot(activeLabelNum, idx)
 				
-				print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag, idx)
+				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag, idx)
 				# transferLabelFlag = False
 				if transferLabelFlag:
 					##transfer
@@ -448,7 +454,7 @@ class transferActiveLearning:
 					activeAccList.append(acc)
 					totalAccList[cvIter].append(acc)
 
-			print("transferLabelNum\t", transferLabelNum)
+			# print("transferLabelNum\t", transferLabelNum)
 			# print(debug)
 			cvIter += 1
 		f = open("al_tl_judge_5.txt", "w")
