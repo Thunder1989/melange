@@ -275,7 +275,7 @@ class transferActiveLearning:
 		for train, test in kf:
 
 			# np.random.shuffle(indexList)
-			self.judgeClassifier = SVC()
+			self.judgeClassifier = LR()
 			print("cvIter...\t",cvIter)
 			trainNum = int(totalInstanceNum*0.9)
 			# train = indexList[:trainNum]
@@ -295,7 +295,10 @@ class transferActiveLearning:
 
 			self.judgeClassifier.fit(fn_train, label_train)
 			fn_preds = self.judgeClassifier.predict(fn_test)
-
+			print("+++++++")
+			print(fn_preds)
+			print(label_test)
+			print("======")
 			acc = accuracy_score(label_test, fn_preds)
 			totalAccList.append(acc)
 			###transfer learning

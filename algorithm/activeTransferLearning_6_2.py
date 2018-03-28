@@ -273,6 +273,7 @@ class transferActiveLearning:
 		# np.random.shuffle(indexList)
 		kf = KFold(totalInstanceNum, n_folds=self.fold, shuffle=True)
 		cvIter = 0
+		transferLabelNumList = []
 		totalAccList = [[] for i in range(10)]
 		for train, test in kf:
 
@@ -496,9 +497,12 @@ class transferActiveLearning:
 					totalAccList[cvIter].append(acc)
 
 			print("transferLabelNum\t", transferLabelNum)
+			transferLabelNumList.append(transferLabelNum)
 			# print(debug)
 			cvIter += 1
-		f = open("al_tl_judge_6.txt", "w")
+
+		print("mean transferLabelNum\t", np.mean(transferLabelNumList), np.sqrt(np.var(transferLabelNumList)))
+		f = open("al_tl_judge_6_2.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])
 			for j in range(totalAlNum):

@@ -469,7 +469,7 @@ class transferActiveLearning:
 					totalAccList[cvIter].append(acc)
 
 			print("transferLabelNum\t", transferLabelNum)
-			totalTransferLabelNum.append(transferLabelNum) 
+			totalTransferNumList.append(transferLabelNum) 
 			# print(debug)
 			cvIter += 1
 			
