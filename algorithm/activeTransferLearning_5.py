@@ -232,7 +232,7 @@ class transferActiveLearning:
 	def transferOrNot(self, activeLabelNum, idx):
 		labelNumThreshold = 20
 
-		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))
+		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))[0]
 
 		if activeLabelNum < labelNumThreshold:
 			return False, predLabel
