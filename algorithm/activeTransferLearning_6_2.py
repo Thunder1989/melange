@@ -66,7 +66,7 @@ class transferActiveLearning:
 		self.ex_id = dd(list)
 
 		self.judgeClassifier = LR()
-		self.m_cbRate = 0.01
+		self.m_cbRate = 0.005
 
 	def update_tao(self, al_tl_fn_train, al_tl_label_train):
 
@@ -237,7 +237,7 @@ class transferActiveLearning:
 		return CB
 
 	def transferOrNot(self, transferFeatureList, transferFlagList, idx):
-		transferThreshold = 0.5
+		transferThreshold = 0.8
 
 		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))[0]
 
@@ -251,13 +251,15 @@ class transferActiveLearning:
 		transferFlag = self.judgeClassifier.predict(self.m_target_fn[idx].reshape(1, -1))
 
 ##upper bound
+
 		UCB = self.getConfidenceBound(idx)
-		UCB = transferProb - self.m_cbRate*UCB
+		# print("UCB", UCB)
+		UCB = transferProb + self.m_cbRate*UCB
 ##low bound
 		LCB = self.getConfidenceBound(idx)
 		LCB = transferProb - self.m_cbRate*LCB
 
-		if LCB >= transferThreshold:
+		if UCB >= transferThreshold:
 			return True, predLabel
 		else:
 			return False, predLabel
@@ -268,7 +270,6 @@ class transferActiveLearning:
 		print("totalInstanceNum\t", totalInstanceNum)
 		indexList = [i for i in range(totalInstanceNum)]
 
-		totalTransferNumList = []
 		# np.random.shuffle(indexList)
 		kf = KFold(totalInstanceNum, n_folds=self.fold, shuffle=True)
 		cvIter = 0
@@ -495,11 +496,8 @@ class transferActiveLearning:
 					totalAccList[cvIter].append(acc)
 
 			print("transferLabelNum\t", transferLabelNum)
-			totalTransferNumList.append(transferLabelNum)
 			# print(debug)
 			cvIter += 1
-
-		print("transfer num\t", np.mean(totalTransferNumList), np.var(totalTransferNumList))
 		f = open("al_tl_judge_6.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])

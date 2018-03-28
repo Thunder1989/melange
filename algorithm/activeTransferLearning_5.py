@@ -97,7 +97,7 @@ class transferActiveLearning:
 		label_tmp=[]
 
 		#re-visit exs removed on previous itr with the new tao
-		for i,j in zip(p_idx,p_label):
+		for i,j in zip(p_idx, p_label):
 
 			if p_dist[i] < self.tao:
 				idx_tmp.append(i)
@@ -127,6 +127,8 @@ class transferActiveLearning:
 		if not tmp:
 			self.ex_id.pop(cluster_id)
 		else:
+			if cluster_id not in self.ex_id.keys():
+				print("new cluster id")
 			self.ex_id[cluster_id] = tmp
 
 		return p_idx, p_label, p_dist
@@ -134,7 +136,7 @@ class transferActiveLearning:
 	def select_example(self, labeled_set):
 
 		sub_pred = dd(list) #Mn predicted labels for each cluster
-		idx = 0
+		idx = -1
 
 		for k,v in self.ex_id.items():
 			sub_pred[k] = self.clf.predict(self.m_target_fn[v]) #predict labels for cluster learning set
@@ -167,7 +169,7 @@ class transferActiveLearning:
 		for i,j in ex_.items(): #sort by ex. dist to the centroid for each C
 			ex_[i] = sorted(j, key=lambda x: x[-1])
 		for k,v in ex_.items():
-
+			# print("k, v\t", k, v[0][0])
 			if v[0][0] not in labeled_set: #find the first unlabeled ex
 
 				idx = v[0][0]
@@ -178,10 +180,13 @@ class transferActiveLearning:
 				else:
 					self.ex_id[c_idx] = c_ex_id
 				break
+			else:
+				print("labeled_set\t", labeled_set, v[0][0])
 
-		if idx == 0:
+		if idx == -1:
 			print("c_ex_id\t", c_ex_id)
 			print("labeled\t", labeled_set)
+			exit()
 
 		return idx, c_idx
 
@@ -199,7 +204,6 @@ class transferActiveLearning:
 			fn_train_pred = np.array(al_tl_fn_train)
 			label_train_pred = np.array(al_tl_label_train)
 		else:
-
 			# print(fn_train_pred.shape)
 			# print(transfer_fn_train.shape)
 			# print(label_train_pred.shape)
@@ -207,7 +211,6 @@ class transferActiveLearning:
 
 			fn_train_pred = self.m_target_fn[pseudo_set]
 			fn_train_pred = np.vstack((fn_train_pred, al_tl_fn_train))
-
 			label_train_pred = np.hstack((pseudo_label, al_tl_label_train))
 
 		self.clf.fit(fn_train_pred, label_train_pred)
@@ -229,11 +232,11 @@ class transferActiveLearning:
 	def transferOrNot(self, activeLabelNum, idx):
 		labelNumThreshold = 20
 
+		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))
+
 		if activeLabelNum < labelNumThreshold:
-			predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))
 			return False, predLabel
 
-		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))
 		transferFlag = self.judgeClassifier.predict(self.m_target_fn[idx].reshape(1, -1))
 		if transferFlag == 1:
 			return True, predLabel
@@ -328,7 +331,7 @@ class transferActiveLearning:
 				
 				transferLabelFlag, label_transfer = self.transferOrNot(activeLabelNum, idx)
 				# transferLabelFlag = False
-				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
+				print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
 				if transferLabelFlag:
 
 					transferLabelNum += 1.0
@@ -341,10 +344,13 @@ class transferActiveLearning:
 					activeLabelNum += 1.0
 					activeLabelFlag = True
 					label_idx = self.m_target_label[idx]
+
 					if label_transfer == label_idx:
+						print("correct label_transfer\t", label_transfer, label_idx)
 						transferFlagList.append(1.0)
 						transferFeatureList.append(self.m_target_fn[idx])
 					else:
+						print("wrong label_transfer\t", label_transfer, label_idx)
 						transferFlagList.append(0.0)
 						transferFeatureList.append(self.m_target_fn[idx])
 
@@ -353,6 +359,15 @@ class transferActiveLearning:
 					## transfer learning
 				queryIteration += 1
 				km_idx.append(idx)
+
+				tmp = self.ex_id[c_idx]
+				tmp.remove(idx)
+
+				if len(tmp) == 0:
+					self.ex_id.pop(c_idx)
+				else:
+					self.ex_id[c_idx] = tmp
+
 				ctr+=1
 
 				if ctr<3:
@@ -372,10 +387,15 @@ class transferActiveLearning:
 
 				p_idx, p_label, p_dist = self.update_pseudo_set(idx, label_idx, c_idx, p_idx, p_label, p_dist)
 
-				acc = self.get_pred_acc(fn_test, label_test, al_tl_fn_train, al_tl_label_train, p_idx, p_label)
-				if activeLabelFlag:
-					activeAccList.append(acc)
-					totalAccList[cvIter].append(acc)
+				if len(np.unique(al_tl_label_train)) < 2:
+					if activeLabelFlag:
+						activeAccList.append(0.0)
+						totalAccList[cvIter].append(0.0)
+				else:
+					acc = self.get_pred_acc(fn_test, label_test, al_tl_fn_train, al_tl_label_train, p_idx, p_label)
+					if activeLabelFlag:
+						activeAccList.append(acc)
+						totalAccList[cvIter].append(acc)
 
 			cl_id = [] #track cluster id on each iter
 			ex_al = [] #track ex added on each iter
@@ -407,6 +427,14 @@ class transferActiveLearning:
 				self.clf.fit(fn_train_iter, label_train_iter)                        
 				idx, c_idx, = self.select_example(km_idx)    
 
+				# tmp = self.ex_id[c_idx]
+				# tmp.remove(idx)
+
+				# if len(tmp) == 0:
+				# 	self.ex_id.pop(c_idx)
+				# else:
+				# 	self.ex_id[c_idx] = tmp
+
 				activeLabelFlag = False
 				label_idx = 0
 
@@ -415,7 +443,7 @@ class transferActiveLearning:
 				
 				transferLabelFlag, label_transfer = self.transferOrNot(activeLabelNum, idx)
 				
-				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag, idx)
+				print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag, idx)
 				# transferLabelFlag = False
 				if transferLabelFlag:
 					##transfer
