@@ -207,22 +207,51 @@ class active_learning:
 
 	def run_CV(self):
 
-		kf = KFold(len(self.label), n_folds=self.fold, shuffle=True)
-		p_acc = [] #pseudo self.label acc
+		# kf = KFold(len(self.label), n_folds=self.fold, shuffle=True)
+		# p_acc = [] #pseudo self.label acc
 
-		# for cvIter in range(10):
+		# # for cvIter in range(10):
 		cvIter = 0
-		for train, test in kf:
+		# # for train, test in kf:
 			
-			totalInstanceNum = len(self.label)
-			print("totalInstanceNum\t", totalInstanceNum)
-			indexList = [i for i in range(totalInstanceNum)]
-			np.random.shuffle(indexList)
+		# 	totalInstanceNum = len(self.label)
+		# 	print("totalInstanceNum\t", totalInstanceNum)
+		# 	indexList = [i for i in range(totalInstanceNum)]
+		# 	np.random.shuffle(indexList)
+		totalInstanceNum = len(self.label)
+		print("totalInstanceNum\t", totalInstanceNum)
+		indexList = [i for i in range(totalInstanceNum)]
+
+		totalTransferNumList = []
+		np.random.seed(3)
+		np.random.shuffle(indexList)
+
+		foldNum = 10
+		foldInstanceNum = int(totalInstanceNum*1.0/foldNum)
+		foldInstanceList = []
+
+		for foldIndex in range(foldNum-1):
+			foldIndexInstanceList = indexList[foldIndex*foldInstanceNum:(foldIndex+1)*foldInstanceNum]
+			foldInstanceList.append(foldIndexInstanceList)
+
+		foldIndexInstanceList = indexList[foldInstanceNum*(foldNum-1):]
+		foldInstanceList.append(foldIndexInstanceList)
+		# kf = KFold(totalInstanceNum, n_folds=self.fold, shuffle=True)
+		cvIter = 0
+		totalAccList = [[] for i in range(10)]
+		for foldIndex in range(foldNum):
+			train = []
+			for preFoldIndex in range(foldIndex):
+				train.extend(foldInstanceList[preFoldIndex])
+
+			test = foldInstanceList[foldIndex]
+			for postFoldIndex in range(foldIndex+1, foldNum):
+				train.extend(foldInstanceList[postFoldIndex])
 
 			trainNum = int(totalInstanceNum*0.9)
 			# train = indexList[:trainNum]
 			# test = indexList[trainNum:]
-
+			# print train, test
 			# for train, test in kf:
 
 			fn_test = self.fn[test]
@@ -266,6 +295,7 @@ class active_learning:
 
 				acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
 				self.acc_sum[ctr-1].append((acc))
+				totalAccList[cvIter].append(acc)
 				# print acc
 				# print("acc\t", acc)
 
@@ -294,6 +324,8 @@ class active_learning:
 				
 				acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
 				self.acc_sum[rr].append((acc))
+				totalAccList[cvIter].append(acc)
+
 			cvIter += 1
 			# print acc
 		# print debug
@@ -307,27 +339,25 @@ class active_learning:
 			#     p_acc.append(sum(self.label[p_idx]==p_label)/float(len(p_label)))
 			# print '----------------------------------------------------'
 			# print '----------------------------------------------------'
+		f = open("al_2.txt", "w")
+		for i in range(10):
+			totalAlNum = len(totalAccList[i])
+			for j in range(totalAlNum):
+				f.write(str(totalAccList[i][j])+"\t")
+			f.write("\n")
+		f.close()
 
-		queryMean = []
-		queryVar = []
-		for queryIndex in range(3, rounds):
-			queryAccList = []
-			for cvIter in range(10):
-			
+		# queryMean = []
+		# queryVar = []
+		# for queryIndex in range(3, rounds):
+		# 	queryAccList = []
+		# 	for cvIter in range(10):
+		# 		queryAccList.append(self.acc_sum[queryIndex][cvIter])
 
-
-		# queryNum = len(self.acc_sum[0])
-		# print(queryNum)
-
-	   
-		# for queryIndex in range(queryNum):
-		#     for cvIter in range(10):
-				queryAccList.append(self.acc_sum[queryIndex][cvIter])
-
-			queryMean.append(np.mean(queryAccList))
-			queryVar.append(np.var(queryAccList))
-		print(queryMean)
-		print(queryVar)
+		# 	queryMean.append(np.mean(queryAccList))
+		# 	queryVar.append(np.var(queryAccList))
+		# print(queryMean)
+		# print(queryVar)
 		# print 'class count of clf training ex:', ct(label_train)
 		# self.acc_sum = [i for i in self.acc_sum if i]
 		# print 'average acc:', [(np.mean(i), np.var(i)) for i in self.acc_sum]
