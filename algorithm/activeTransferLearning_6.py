@@ -66,7 +66,7 @@ class transferActiveLearning:
 		self.ex_id = dd(list)
 
 		self.judgeClassifier = LR()
-		self.m_cbRate = 0.01
+		self.m_cbRate = 0.05
 
 	def update_tao(self, al_tl_fn_train, al_tl_label_train):
 
@@ -236,6 +236,17 @@ class transferActiveLearning:
 
 		return CB
 
+	def getJudgeProb(self, judgeParam, feature, CB):
+		rawProb = np.dot(judgeParam, np.transpose(feature))
+		# print("rawProb\t", rawProb, CB)
+		if rawProb-self.m_cbRate*CB > 0:
+			# print(rawProb-self.m_cbRate*CB, "True")
+			return True
+		else:
+			# print(rawProb-self.m_cbRate*CB, "False")
+			return False
+
+
 	def transferOrNot(self, transferFeatureList, transferFlagList, idx):
 		transferThreshold = 0.5
 
@@ -245,22 +256,34 @@ class transferActiveLearning:
 			self.judgeClassifier.fit(np.array(transferFeatureList), np.array(transferFlagList))
 		else:
 			return False, predLabel
-		###judge correct prob 
-		transferProb = self.judgeClassifier.predict_proba(self.m_target_fn[idx].reshape(1, -1))[0][1]
-		# print("transferProb\t", transferProb)
-		transferFlag = self.judgeClassifier.predict(self.m_target_fn[idx].reshape(1, -1))
 
-##upper bound
-		UCB = self.getConfidenceBound(idx)
-		UCB = transferProb - self.m_cbRate*UCB
-##low bound
-		LCB = self.getConfidenceBound(idx)
-		LCB = transferProb - self.m_cbRate*LCB
+		CB = self.getConfidenceBound(idx) 
 
-		if LCB >= transferThreshold:
+		# LCB = self.judgeClassifier.coef_ - self.m_cbRate*CB
+		# UCB = self.judgeClassifier.coef_ + self.m_cbRate*CB
+
+		transferFlag = self.getJudgeProb(self.judgeClassifier.coef_, self.m_target_fn[idx].reshape(1, -1), CB)
+		if transferFlag:
 			return True, predLabel
 		else:
 			return False, predLabel
+
+		# ###judge correct prob 
+		# transferProb = self.judgeClassifier.predict_proba(self.m_target_fn[idx].reshape(1, -1))[0][1]
+		# # print("transferProb\t", transferProb)
+		# transferFlag = self.judgeClassifier.predict(self.m_target_fn[idx].reshape(1, -1))
+
+##upper bound
+		# UCB = self.getConfidenceBound(idx)
+		# UCB = transferProb - self.m_cbRate*UCB
+##low bound
+		# LCB = self.getConfidenceBound(idx)
+		# LCB = transferProb - self.m_cbRate*LCB
+
+		# if LCB >= transferThreshold:
+		# 	return True, predLabel
+		# else:
+		# 	return False, predLabel
 
 	def run_CV(self):
 
@@ -269,23 +292,38 @@ class transferActiveLearning:
 		indexList = [i for i in range(totalInstanceNum)]
 
 		totalTransferNumList = []
-		# np.random.shuffle(indexList)
-		kf = KFold(totalInstanceNum, n_folds=self.fold, shuffle=True)
+		np.random.seed(3)
+		np.random.shuffle(indexList)
+
+
+		foldNum = 10
+		foldInstanceNum = int(totalInstanceNum*1.0/foldNum)
+		foldInstanceList = []
+
+		for foldIndex in range(foldNum-1):
+			foldIndexInstanceList = indexList[foldIndex*foldInstanceNum:(foldIndex+1)*foldInstanceNum]
+			foldInstanceList.append(foldIndexInstanceList)
+
+		foldIndexInstanceList = indexList[foldInstanceNum*(foldNum-1):]
+		foldInstanceList.append(foldIndexInstanceList)
+		# kf = KFold(totalInstanceNum, n_folds=self.fold, shuffle=True)
 		cvIter = 0
 		totalAccList = [[] for i in range(10)]
-		for train, test in kf:
+		for foldIndex in range(foldNum):
+			train = []
+			for preFoldIndex in range(foldIndex):
+				train.extend(foldInstanceList[preFoldIndex])
 
-			# np.random.shuffle(indexList)
+			test = foldInstanceList[foldIndex]
+			for postFoldIndex in range(foldIndex+1, foldNum):
+				train.extend(foldInstanceList[postFoldIndex])
+
+			# print train, test
+
 			self.judgeClassifier = LR()
 			print("cvIter...\t",cvIter)
 			trainNum = int(totalInstanceNum*0.9)
-			# train = indexList[:trainNum]
-			# test = indexList[trainNum:]
-
-			# train = indexList
-			# test = indexList
-
-			# for train, test in kf:
+		
 			fn_train = self.m_target_fn[train]
 			label_train = self.m_target_label[train]
 			fd_train = self.m_target_fd[train]
@@ -320,8 +358,9 @@ class transferActiveLearning:
 			p_label = []
 			p_dist = dd()
 			#first batch of exs: pick centroid of each cluster, and cluster visited based on its size
-			ctr = 0
+			
 			###only active label count for the comparison
+			ctr = 0
 			accList = []
 
 			activeLabelNum = 0
@@ -499,7 +538,7 @@ class transferActiveLearning:
 			# print(debug)
 			cvIter += 1
 
-		print("transfer num\t", np.mean(totalTransferNumList), np.var(totalTransferNumList))
+		print("transfer num\t", np.mean(totalTransferNumList), np.sqrt(np.var(totalTransferNumList)))
 		f = open("al_tl_judge_6.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])
