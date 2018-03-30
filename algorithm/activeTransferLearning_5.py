@@ -230,7 +230,7 @@ class transferActiveLearning:
 			b.fit(self.m_source_fd, self.m_source_label) #train each base classifier
 	
 	def transferOrNot(self, activeLabelNum, idx):
-		labelNumThreshold = 60
+		labelNumThreshold = 20
 
 		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))[0]
 
@@ -250,11 +250,32 @@ class transferActiveLearning:
 		print("totalInstanceNum\t", totalInstanceNum)
 		indexList = [i for i in range(totalInstanceNum)]
 
-		# np.random.shuffle(indexList)
-		kf = KFold(totalInstanceNum, n_folds=self.fold, shuffle=True)
+		totalTransferNumList = []
+		np.random.seed(3)
+		np.random.shuffle(indexList)
+
+
+		foldNum = 10
+		foldInstanceNum = int(totalInstanceNum*1.0/foldNum)
+		foldInstanceList = []
+
+		for foldIndex in range(foldNum-1):
+			foldIndexInstanceList = indexList[foldIndex*foldInstanceNum:(foldIndex+1)*foldInstanceNum]
+			foldInstanceList.append(foldIndexInstanceList)
+
+		foldIndexInstanceList = indexList[foldInstanceNum*(foldNum-1):]
+		foldInstanceList.append(foldIndexInstanceList)
+		# kf = KFold(totalInstanceNum, n_folds=self.fold, shuffle=True)
 		cvIter = 0
 		totalAccList = [[] for i in range(10)]
-		for train, test in kf:
+		for foldIndex in range(foldNum):
+			train = []
+			for preFoldIndex in range(foldIndex):
+				train.extend(foldInstanceList[preFoldIndex])
+
+			test = foldInstanceList[foldIndex]
+			for postFoldIndex in range(foldIndex+1, foldNum):
+				train.extend(foldInstanceList[postFoldIndex])
 
 			# np.random.shuffle(indexList)
 			self.judgeClassifier = LR()
@@ -483,8 +504,11 @@ class transferActiveLearning:
 					totalAccList[cvIter].append(acc)
 
 			print("transferLabelNum\t", transferLabelNum)
+			totalTransferNumList.append(transferLabelNum) 
 			# print(debug)
 			cvIter += 1
+
+		print("transfer num\t", np.mean(totalTransferNumList), np.var(totalTransferNumList))		
 		f = open("al_tl_judge_5.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])

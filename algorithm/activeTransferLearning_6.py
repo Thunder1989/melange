@@ -39,6 +39,9 @@ def get_name_features(names):
 
 	return fn
 
+def sigmoid(x):
+  	  return (1 / (1 + np.exp(-x)))
+
 class transferActiveLearning:
 
 	def __init__(self, fold, rounds, source_fd, source_label, target_fd, target_label, target_fn):
@@ -238,14 +241,14 @@ class transferActiveLearning:
 
 	def getJudgeProb(self, judgeParam, feature, CB):
 		rawProb = np.dot(judgeParam, np.transpose(feature))
-		# print("rawProb\t", rawProb, CB)
-		if rawProb-self.m_cbRate*CB > 0:
-			# print(rawProb-self.m_cbRate*CB, "True")
+		print("rawProb\t", rawProb, CB)
+		judgeProbThreshold = 0.5
+		if sigmoid(rawProb-self.m_cbRate*CB) > judgeProbThreshold:
+			print(rawProb-self.m_cbRate*CB, "True")
 			return True
 		else:
-			# print(rawProb-self.m_cbRate*CB, "False")
+			print(rawProb-self.m_cbRate*CB, "False")
 			return False
-
 
 	def transferOrNot(self, transferFeatureList, transferFlagList, idx):
 		transferThreshold = 0.5
@@ -390,10 +393,10 @@ class transferActiveLearning:
 				
 				# transferLabelFlag, label_transfer = self.transferOrNot(activeLabelNum, idx)
 				# transferLabelFlag = False
-				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
-
+				
 				transferLabelFlag, label_transfer = self.transferOrNot(transferFeatureList, transferFlagList, idx)
 				self.updateConfidenceBound(idx)
+				print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
 
 				if transferLabelFlag:
 
@@ -494,7 +497,7 @@ class transferActiveLearning:
 				
 				transferLabelFlag, label_transfer = self.transferOrNot(transferFeatureList, transferFlagList, idx)
 				self.updateConfidenceBound(idx)				
-				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
+				print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
 				# transferLabelFlag = False
 				if transferLabelFlag:
 					##transfer

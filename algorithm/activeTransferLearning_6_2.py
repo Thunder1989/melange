@@ -39,6 +39,9 @@ def get_name_features(names):
 
 	return fn
 
+def sigmoid(x):
+  	  return (1 / (1 + np.exp(-x)))
+
 class transferActiveLearning:
 
 	def __init__(self, fold, rounds, source_fd, source_label, target_fd, target_label, target_fn):
@@ -66,7 +69,7 @@ class transferActiveLearning:
 		self.ex_id = dd(list)
 
 		self.judgeClassifier = LR()
-		self.m_cbRate = 0.005
+		self.m_cbRate = 0.01
 
 	def update_tao(self, al_tl_fn_train, al_tl_label_train):
 
@@ -236,8 +239,19 @@ class transferActiveLearning:
 
 		return CB
 
+	def getJudgeProb(self, judgeParam, feature, CB):
+		rawProb = np.dot(judgeParam, np.transpose(feature))
+		print("rawProb\t", rawProb, CB)
+		judgeProbThreshold = 0.8
+		if sigmoid(rawProb+self.m_cbRate*CB) > judgeProbThreshold:
+			print(rawProb-self.m_cbRate*CB, "True")
+			return True
+		else:
+			print(rawProb-self.m_cbRate*CB, "False")
+			return False
+
 	def transferOrNot(self, transferFeatureList, transferFlagList, idx):
-		transferThreshold = 0.8
+		transferThreshold = 0.5
 
 		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))[0]
 
@@ -245,37 +259,51 @@ class transferActiveLearning:
 			self.judgeClassifier.fit(np.array(transferFeatureList), np.array(transferFlagList))
 		else:
 			return False, predLabel
-		###judge correct prob 
-		transferProb = self.judgeClassifier.predict_proba(self.m_target_fn[idx].reshape(1, -1))[0][1]
-		# print("transferProb\t", transferProb)
-		transferFlag = self.judgeClassifier.predict(self.m_target_fn[idx].reshape(1, -1))
 
-##upper bound
+		CB = self.getConfidenceBound(idx) 
 
-		UCB = self.getConfidenceBound(idx)
-		# print("UCB", UCB)
-		UCB = transferProb + self.m_cbRate*UCB
-##low bound
-		LCB = self.getConfidenceBound(idx)
-		LCB = transferProb - self.m_cbRate*LCB
+		# LCB = self.judgeClassifier.coef_ - self.m_cbRate*CB
+		# UCB = self.judgeClassifier.coef_ + self.m_cbRate*CB
 
-		if UCB >= transferThreshold:
+		transferFlag = self.getJudgeProb(self.judgeClassifier.coef_, self.m_target_fn[idx].reshape(1, -1), CB)
+		if transferFlag:
 			return True, predLabel
 		else:
 			return False, predLabel
 
+	
 	def run_CV(self):
 
 		totalInstanceNum = len(self.m_target_label)
 		print("totalInstanceNum\t", totalInstanceNum)
 		indexList = [i for i in range(totalInstanceNum)]
 
-		# np.random.shuffle(indexList)
-		kf = KFold(totalInstanceNum, n_folds=self.fold, shuffle=True)
+		totalTransferNumList = []
+		np.random.seed(3)
+		np.random.shuffle(indexList)
+
+
+		foldNum = 10
+		foldInstanceNum = int(totalInstanceNum*1.0/foldNum)
+		foldInstanceList = []
+
+		for foldIndex in range(foldNum-1):
+			foldIndexInstanceList = indexList[foldIndex*foldInstanceNum:(foldIndex+1)*foldInstanceNum]
+			foldInstanceList.append(foldIndexInstanceList)
+
+		foldIndexInstanceList = indexList[foldInstanceNum*(foldNum-1):]
+		foldInstanceList.append(foldIndexInstanceList)
+		# kf = KFold(totalInstanceNum, n_folds=self.fold, shuffle=True)
 		cvIter = 0
-		transferLabelNumList = []
 		totalAccList = [[] for i in range(10)]
-		for train, test in kf:
+		for foldIndex in range(foldNum):
+			train = []
+			for preFoldIndex in range(foldIndex):
+				train.extend(foldInstanceList[preFoldIndex])
+
+			test = foldInstanceList[foldIndex]
+			for postFoldIndex in range(foldIndex+1, foldNum):
+				train.extend(foldInstanceList[postFoldIndex])
 
 			# np.random.shuffle(indexList)
 			self.judgeClassifier = LR()
@@ -497,11 +525,11 @@ class transferActiveLearning:
 					totalAccList[cvIter].append(acc)
 
 			print("transferLabelNum\t", transferLabelNum)
-			transferLabelNumList.append(transferLabelNum)
+			totalTransferNumList.append(transferLabelNum)
 			# print(debug)
 			cvIter += 1
 
-		print("mean transferLabelNum\t", np.mean(transferLabelNumList), np.sqrt(np.var(transferLabelNumList)))
+		print("mean transferLabelNum\t", np.mean(totalTransferNumList), np.sqrt(np.var(totalTransferNumList)))
 		f = open("al_tl_judge_6_2.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])

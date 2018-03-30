@@ -256,14 +256,33 @@ class transferActiveLearning:
 		totalInstanceNum = len(self.m_target_label)
 		print("totalInstanceNum\t", totalInstanceNum)
 		indexList = [i for i in range(totalInstanceNum)]
-		totalTransferNumList = []
 
-		# np.random.shuffle(indexList)
-		kf = KFold(totalInstanceNum, n_folds=self.fold, shuffle=True)
+		totalTransferNumList = []
+		np.random.seed(3)
+		np.random.shuffle(indexList)
+
+
+		foldNum = 10
+		foldInstanceNum = int(totalInstanceNum*1.0/foldNum)
+		foldInstanceList = []
+
+		for foldIndex in range(foldNum-1):
+			foldIndexInstanceList = indexList[foldIndex*foldInstanceNum:(foldIndex+1)*foldInstanceNum]
+			foldInstanceList.append(foldIndexInstanceList)
+
+		foldIndexInstanceList = indexList[foldInstanceNum*(foldNum-1):]
+		foldInstanceList.append(foldIndexInstanceList)
+		# kf = KFold(totalInstanceNum, n_folds=self.fold, shuffle=True)
 		cvIter = 0
 		totalAccList = [[] for i in range(10)]
-		totalTransferLabelNum = 0
-		for train, test in kf:
+		for foldIndex in range(foldNum):
+			train = []
+			for preFoldIndex in range(foldIndex):
+				train.extend(foldInstanceList[preFoldIndex])
+
+			test = foldInstanceList[foldIndex]
+			for postFoldIndex in range(foldIndex+1, foldNum):
+				train.extend(foldInstanceList[postFoldIndex])
 
 			# np.random.shuffle(indexList)
 			print("cvIter...\t",cvIter)
