@@ -390,10 +390,11 @@ class transferActiveLearning:
 				
 				# transferLabelFlag, label_transfer = self.transferOrNot(activeLabelNum, idx)
 				# transferLabelFlag = False
-				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
-
+			
 				transferLabelFlag, label_transfer = self.transferOrNot(transferFeatureList, transferFlagList, idx)
 				self.updateConfidenceBound(idx)
+
+				print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
 
 				if transferLabelFlag:
 
@@ -494,7 +495,7 @@ class transferActiveLearning:
 				
 				transferLabelFlag, label_transfer = self.transferOrNot(transferFeatureList, transferFlagList, idx)
 				self.updateConfidenceBound(idx)				
-				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
+				print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
 				# transferLabelFlag = False
 				if transferLabelFlag:
 					##transfer
