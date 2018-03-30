@@ -275,7 +275,7 @@ class transferActiveLearning:
 		for train, test in kf:
 
 			# np.random.shuffle(indexList)
-			self.judgeClassifier = LR()
+			self.judgeClassifier = LinearSVC()
 			print("cvIter...\t",cvIter)
 			trainNum = int(totalInstanceNum*0.9)
 			# train = indexList[:trainNum]

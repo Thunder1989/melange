@@ -230,7 +230,7 @@ class transferActiveLearning:
 			b.fit(self.m_source_fd, self.m_source_label) #train each base classifier
 	
 	def transferOrNot(self, activeLabelNum, idx):
-		labelNumThreshold = 20
+		labelNumThreshold = 60
 
 		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))[0]
 
@@ -331,7 +331,7 @@ class transferActiveLearning:
 				
 				transferLabelFlag, label_transfer = self.transferOrNot(activeLabelNum, idx)
 				# transferLabelFlag = False
-				print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
+				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
 				if transferLabelFlag:
 
 					transferLabelNum += 1.0
@@ -346,11 +346,11 @@ class transferActiveLearning:
 					label_idx = self.m_target_label[idx]
 
 					if label_transfer == label_idx:
-						print("correct label_transfer\t", label_transfer, label_idx)
+						# print("correct label_transfer\t", label_transfer, label_idx)
 						transferFlagList.append(1.0)
 						transferFeatureList.append(self.m_target_fn[idx])
 					else:
-						print("wrong label_transfer\t", label_transfer, label_idx)
+						# print("wrong label_transfer\t", label_transfer, label_idx)
 						transferFlagList.append(0.0)
 						transferFeatureList.append(self.m_target_fn[idx])
 
@@ -443,7 +443,7 @@ class transferActiveLearning:
 				
 				transferLabelFlag, label_transfer = self.transferOrNot(activeLabelNum, idx)
 				
-				print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag, idx)
+				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag, idx)
 				# transferLabelFlag = False
 				if transferLabelFlag:
 					##transfer
@@ -482,7 +482,7 @@ class transferActiveLearning:
 					activeAccList.append(acc)
 					totalAccList[cvIter].append(acc)
 
-			# print("transferLabelNum\t", transferLabelNum)
+			print("transferLabelNum\t", transferLabelNum)
 			# print(debug)
 			cvIter += 1
 		f = open("al_tl_judge_5.txt", "w")
