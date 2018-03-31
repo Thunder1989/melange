@@ -241,13 +241,13 @@ class transferActiveLearning:
 
 	def getJudgeProb(self, judgeParam, feature, CB):
 		rawProb = np.dot(judgeParam, np.transpose(feature))
-		print("rawProb\t", rawProb, CB)
+		# print("rawProb\t", rawProb, CB)
 		judgeProbThreshold = 0.5
 		if sigmoid(rawProb-self.m_cbRate*CB) > judgeProbThreshold:
-			print(rawProb-self.m_cbRate*CB, "True")
+			# print(rawProb-self.m_cbRate*CB, "True")
 			return True
 		else:
-			print(rawProb-self.m_cbRate*CB, "False")
+			# print(rawProb-self.m_cbRate*CB, "False")
 			return False
 
 	def transferOrNot(self, transferFeatureList, transferFlagList, idx):
@@ -298,7 +298,6 @@ class transferActiveLearning:
 		np.random.seed(3)
 		np.random.shuffle(indexList)
 
-
 		foldNum = 10
 		foldInstanceNum = int(totalInstanceNum*1.0/foldNum)
 		foldInstanceList = []
@@ -311,6 +310,7 @@ class transferActiveLearning:
 		foldInstanceList.append(foldIndexInstanceList)
 		# kf = KFold(totalInstanceNum, n_folds=self.fold, shuffle=True)
 		cvIter = 0
+		activeAccList = [[] for i in range(10)]
 		totalAccList = [[] for i in range(10)]
 		for foldIndex in range(foldNum):
 			train = []
@@ -367,7 +367,6 @@ class transferActiveLearning:
 			accList = []
 
 			activeLabelNum = 0
-			activeAccList = []
 
 			transferLearnerThreshold = 0.5
 
@@ -437,13 +436,14 @@ class transferActiveLearning:
 				if ctr<3:
 					if len(np.unique(al_tl_label_train)) < 2:
 						if activeLabelFlag:
-							activeAccList.append(0.0)
-							totalAccList[cvIter].append(0.0)
+							activeAccList[cvIter].append(0.0)
+						totalAccList[cvIter].append(0.0)
+
 					else:
 						acc = self.get_pred_acc(fn_test, label_test, al_tl_fn_train, al_tl_label_train, p_idx, p_label)
 						if activeLabelFlag:
-							activeAccList.append(acc)
-							totalAccList[cvIter].append(acc)
+							activeAccList[cvIter].append(acc)
+						totalAccList[cvIter].append(acc)
 
 					continue
 
@@ -453,13 +453,13 @@ class transferActiveLearning:
 
 				if len(np.unique(al_tl_label_train)) < 2:
 					if activeLabelFlag:
-						activeAccList.append(0.0)
-						totalAccList[cvIter].append(0.0)
+						activeAccList[cvIter].append(0.0)
+					totalAccList[cvIter].append(0.0)
 				else:
 					acc = self.get_pred_acc(fn_test, label_test, al_tl_fn_train, al_tl_label_train, p_idx, p_label)
 					if activeLabelFlag:
-						activeAccList.append(acc)
-						totalAccList[cvIter].append(acc)
+						activeAccList[cvIter].append(acc)
+					totalAccList[cvIter].append(acc)
 
 			cl_id = [] #track cluster id on each iter
 			ex_al = [] #track ex added on each iter
@@ -535,8 +535,8 @@ class transferActiveLearning:
 				acc = self.get_pred_acc(fn_test, label_test, al_tl_fn_train, al_tl_label_train, p_idx, p_label)
 
 				if activeLabelFlag:
-					activeAccList.append(acc)
-					totalAccList[cvIter].append(acc)
+					activeAccList[cvIter].append(acc)
+				totalAccList[cvIter].append(acc)
 
 			print("transferLabelNum\t", transferLabelNum)
 			totalTransferNumList.append(transferLabelNum)
@@ -544,11 +544,19 @@ class transferActiveLearning:
 			cvIter += 1
 
 		print("transfer num\t", np.mean(totalTransferNumList), np.sqrt(np.var(totalTransferNumList)))
-		f = open("al_tl_judge_6.txt", "w")
+		f = open("al_tl_judge_6_total.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])
 			for j in range(totalAlNum):
 				f.write(str(totalAccList[i][j])+"\t")
+			f.write("\n")
+		f.close()
+
+		f = open("al_tl_judge_6.txt", "w")
+		for i in range(10):
+			totalAlNum = len(activeAccList[i])
+			for j in range(totalAlNum):
+				f.write(str(activeAccList[i][j])+"\t")
 			f.write("\n")
 		f.close()
 
