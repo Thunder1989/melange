@@ -251,7 +251,7 @@ class transferActiveLearning:
 			return False
 
 	def transferOrNot(self, transferFeatureList, transferFlagList, idx):
-		transferThreshold = 0.5
+		# transferThreshold = 0.5
 
 		predLabel = self.bl[0].predict(self.m_target_fd[idx].reshape(1, -1))[0]
 
