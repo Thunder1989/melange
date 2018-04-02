@@ -150,7 +150,13 @@ class active_learning:
 			if v[0][0] not in labeled_set: #find the first unlabeled ex
 
 				idx = v[0][0]
-				break
+				c_ex_id.remove(idx) #update the training set by removing selected ex id
+
+                if len(c_ex_id) == 0:
+                    self.ex_id.pop(c_idx)
+                else:
+                    self.ex_id[c_idx] = c_ex_id
+                break
 
 		return idx, c_idx
 
@@ -285,6 +291,14 @@ class active_learning:
 				idx = ex[c_idx][0][0] #id of ex closest to centroid of cluster
 				km_idx.append(idx)
 				ctr+=1
+
+				tmp = self.ex_id[c_idx]
+				tmp.remove(idx)
+
+				if len(tmp) == 0:
+					self.ex_id.pop(c_idx)
+				else:
+					self.ex_id[c_idx] = tmp
 
 				if ctr<3:
 					continue
