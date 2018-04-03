@@ -382,8 +382,8 @@ class transferActiveLearning:
 
 					transferLabelNum += 1.0
 					activeLabelFlag = False
-					# label_idx = label_transfer
-					label_idx = self.m_target_label[idx]
+					label_idx = label_transfer
+					# label_idx = self.m_target_label[idx]
 					al_tl_label_train.append(label_idx)
 					al_tl_fn_train.append(self.m_target_fn[idx])
 
@@ -502,8 +502,8 @@ class transferActiveLearning:
 					##transfer
 					transferLabelNum += 1.0
 					activeLabelFlag = False
-					# label_idx = label_transfer
-					label_idx = self.m_target_label[idx]
+					label_idx = label_transfer
+					# label_idx = self.m_target_label[idx]
 					al_tl_label_train.append(label_idx)
 					al_tl_fn_train.append(self.m_target_fn[idx])
 
