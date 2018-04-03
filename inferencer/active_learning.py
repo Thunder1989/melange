@@ -13,8 +13,6 @@ from sklearn.cluster import KMeans
 from sklearn.mixture import DPGMM
 
 from sklearn.feature_extraction.text import CountVectorizer as CV
-from sklearn.feature_extraction.text import TfidfVectorizer as TV
-from sklearn.cross_validation import StratifiedKFold
 from sklearn.cross_validation import KFold
 from sklearn.ensemble import RandomForestClassifier as RFC
 from sklearn.svm import LinearSVC
@@ -23,6 +21,7 @@ from sklearn.metrics import confusion_matrix as CM
 from sklearn.preprocessing import normalize
 
 from Inferencer import Inferencer
+from .algorithm.active_learning import active_learning
 
 def get_name_features(names):
 
@@ -36,7 +35,7 @@ def get_name_features(names):
 
         return fn
 
-class active_learning(Inferencer):
+class active_learning_interface(Inferencer):
 
     def __init__(self,
 	target_building,
@@ -44,7 +43,7 @@ class active_learning(Inferencer):
         rounds
 	):
 
-	super(active_learning, self).__init__(
+	super(active_learning_interface, self).__init__(
             target_building='rice'
         )
 
@@ -64,6 +63,13 @@ class active_learning(Inferencer):
 
         self.clf = LinearSVC()
         self.ex_id = dd(list)
+
+        self.learner = active_learning(
+            self.fold,
+            self.rounds,
+            self.fn,
+            self.label
+        )
 
 
     def update_tao(self, labeled_set):
@@ -218,103 +224,8 @@ class active_learning(Inferencer):
         pl.show()
 
 
-    def learn_auto(self):
-
-        kf = KFold(len(self.label), n_folds=self.fold, shuffle=True)
-        p_acc = [] #pseudo self.label acc
-
-        for train, test in kf:
-
-            fn_test = self.fn[test]
-            label_test = self.label[test]
-
-            fn_train = self.fn[train]
-            c = KMeans(init='k-means++', n_clusters=28, n_init=10)
-            c.fit(fn_train)
-            dist = np.sort(c.transform(fn_train))
-
-            ex = dd(list) #example id, distance to centroid
-            self.ex_id = dd(list) #example id for each C
-            ex_N = [] # num of examples in each C
-            for i,j,k in zip(c.labels_, train, dist):
-                ex[i].append([j,k[0]])
-                self.ex_id[i].append(int(j))
-            for i,j in ex.items():
-                ex[i] = sorted(j, key=lambda x: x[-1])
-                ex_N.append([i,len(ex[i])])
-            ex_N = sorted(ex_N, key=lambda x: x[-1],reverse=True)
-
-            km_idx = []
-            p_idx = []
-            p_label = []
-            p_dist = dd()
-            #first batch of exs: pick centroid of each cluster, and cluster visited based on its size
-            ctr = 0
-            for ee in ex_N:
-
-                c_idx = ee[0] #cluster id
-                idx = ex[c_idx][0][0] #id of ex closest to centroid of cluster
-                km_idx.append(idx)
-                ctr+=1
-
-                if ctr<3:
-                    continue
-
-                self.update_tao(km_idx)
-
-                p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
-
-                acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
-                self.acc_sum[ctr-1].append(acc)
-
-
-            cl_id = [] #track cluster id on each iter
-            ex_al = [] #track ex added on each iter
-            fn_test = self.fn[test]
-            label_test = self.label[test]
-            for rr in range(ctr, rounds):
-
-                if not p_idx:
-                    fn_train = self.fn[km_idx]
-                    label_train = self.label[km_idx]
-                else:
-                    fn_train = self.fn[np.hstack((km_idx, p_idx))]
-                    label_train = np.hstack((self.label[km_idx], p_label))
-
-                self.clf.fit(fn_train, label_train)
-
-                idx, c_idx, = self.select_example(km_idx)
-
-                '''update model starts'''
-                km_idx.append(idx)
-                cl_id.append(c_idx) #track picked cluster id on each iteration
-                # ex_al.append([rr,key,v[0][-2],self.label[idx],raw_pt[idx]]) #for debugging
-
-                self.update_tao(km_idx)
-                p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
-                '''updating ends'''
-
-                acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
-                self.acc_sum[rr].append(acc)
-
-            print '# of p label', len(p_label)
-            print cl_id
-            if not p_label:
-                print 'p label acc', 0
-                p_acc.append(0)
-            else:
-                print 'p label acc', sum(self.label[p_idx]==p_label)/float(len(p_label))
-                p_acc.append(sum(self.label[p_idx]==p_label)/float(len(p_label)))
-            print '----------------------------------------------------'
-            print '----------------------------------------------------'
-
-        print 'class count of clf training ex:', ct(label_train)
-        self.acc_sum = [i for i in self.acc_sum if i]
-        print 'average acc:', [np.mean(i) for i in self.acc_sum]
-        print 'average p label acc:', np.mean(p_acc)
-
-        self.plot_confusion_matrix(label_test, fn_test)
-
+    def run_auto(self):
+        self.learner.run_CV()
 
 if __name__ == "__main__":
 
@@ -322,11 +233,11 @@ if __name__ == "__main__":
 
     fold = 10
     rounds = 100
-    al = active_learning(
+    al = active_learning_interface(
         target_building='rice',
         fold=fold,
         rounds=rounds
         )
 
-    al.run_CV()
+    al.run_auto()
 
