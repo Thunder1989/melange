@@ -1,4 +1,8 @@
 """
+active transfer learning we use the lower bound to estimate whether we should trust the classifer or not. LCB and we try K times to see whether it could past. If K times pass the judge classifier, we use the instance which pass the judge classifier. Otherwise, we use the first one to ask for human label. 
+"""
+
+"""
 active transfer learning we use the lower bound to estimate whether we should trust the classifer or not.  and we replace the transferred label with the true label
 """
 import numpy as np
@@ -68,6 +72,10 @@ class transferActiveLearning:
 
 		self.judgeClassifier = 0
 		self.m_cbRate = 0.05
+
+### track top k examples try to pass judgeClassifier
+		self.m_topKExList = []
+		self.m_topK = 5
 
 	def update_tao(self, al_tl_fn_train, al_tl_label_train):
 
@@ -248,23 +256,6 @@ class transferActiveLearning:
 		else:
 			return False, predLabel
 
-		# ###judge correct prob 
-		# transferProb = self.judgeClassifier.predict_proba(self.m_target_fn[idx].reshape(1, -1))[0][1]
-		# # print("transferProb\t", transferProb)
-		# transferFlag = self.judgeClassifier.predict(self.m_target_fn[idx].reshape(1, -1))
-
-##upper bound
-		# UCB = self.getConfidenceBound(idx)
-		# UCB = transferProb - self.m_cbRate*UCB
-##low bound
-		# LCB = self.getConfidenceBound(idx)
-		# LCB = transferProb - self.m_cbRate*LCB
-
-		# if LCB >= transferThreshold:
-		# 	return True, predLabel
-		# else:
-		# 	return False, predLabel
-
 	def run_CV(self):
 
 		totalInstanceNum = len(self.m_target_label)
@@ -362,28 +353,30 @@ class transferActiveLearning:
 			featureDim = len(fn_train[0])
 			self.initConfidenceBound(_lambda, featureDim)
 
-			for ee in ex_N:
-				activeLabelFlag = False
+			clusterNum = len(ex_N)
+			clusterIndex = 0
+			while clusterIndex < clusterNum:
+			# for ee in ex_N:
+				ee = ex_N[clusterIndex]
 				c_idx = ee[0] #cluster id
 				idx = ex[c_idx][0][0] #id of ex closest to centroid of cluster
 
-				# label_idx = -1
-				
-				# transferLabelFlag, label_transfer = self.transferOrNot(activeLabelNum, idx)
-				# transferLabelFlag = False
-
+				# judgeFailTimes = 0
+				# judgeFailIDList = []
+				# for judgeFailIndex in range(self.m_topK):
 				transferLabelFlag, label_transfer = self.transferOrNot(transferFeatureList, transferFlagList, idx)
-				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
+				judgeFailIDList.append(idx)
+					if transferLabelFlag:
+						break
 
-				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
-				# transferLabelFlag = False
+				activeLabelFlag = False
 				label_idx = -1
 				if transferLabelFlag:
 
 					transferLabelNum += 1.0
 					activeLabelFlag = False
-					# label_idx = label_transfer
-					label_idx = self.m_target_label[idx]
+					label_idx = label_transfer
+					# label_idx = self.m_target_label[idx]
 					al_tl_label_train.append(label_idx)
 					al_tl_fn_train.append(self.m_target_fn[idx])
 
@@ -397,7 +390,7 @@ class transferActiveLearning:
 					activeLabelNum += 1.0
 					activeLabelFlag = True
 
-					self.updateConfidenceBound(idx)
+					self.updateConfidenceBound(idx)				
 
 					label_idx = self.m_target_label[idx]
 					al_tl_label_train.append(label_idx)
@@ -415,7 +408,7 @@ class transferActiveLearning:
 				# al_tl_fn_train.append(self.m_target_fn[idx])
 					# transfer learning
 				queryIteration += 1
-				# print("queryIteration\t", queryIteration)
+				print("queryIteration\t", queryIteration)
 				km_idx.append(idx)
 				ctr+=1
 
@@ -493,8 +486,10 @@ class transferActiveLearning:
 				idx, c_idx, = self.select_example(km_idx)    
 
 				activeLabelFlag = False
+				label_idx = 0
 
 				transferLabelFlag, label_transfer = self.transferOrNot(transferFeatureList, transferFlagList, idx)
+				self.updateConfidenceBound(idx)				
 				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
 				# transferLabelFlag = False
 				label_idx = -1
@@ -502,8 +497,8 @@ class transferActiveLearning:
 					##transfer
 					transferLabelNum += 1.0
 					activeLabelFlag = False
-					# label_idx = label_transfer
-					label_idx = self.m_target_label[idx]
+					label_idx = label_transfer
+					# label_idx = self.m_target_label[idx]
 					al_tl_label_train.append(label_idx)
 					al_tl_fn_train.append(self.m_target_fn[idx])
 
@@ -519,8 +514,6 @@ class transferActiveLearning:
 
 					al_tl_label_train.append(self.m_target_label[idx])
 					al_tl_fn_train.append(self.m_target_fn[idx])
-
-					self.updateConfidenceBound(idx)				
 
 					if label_transfer == label_idx:
 						transferFlagList.append(1.0)
@@ -546,15 +539,15 @@ class transferActiveLearning:
 					activeAccList[cvIter].append(acc)
 				totalAccList[cvIter].append(acc)
 
-			correctRatio = correctTransferLabelNum*1.0/transferLabelNum
-			print("transferLabelNum\t", transferLabelNum, "correct ratio\t", correctRatio)
-			correctTransferRatioList.append(correctRatio)
-			totalTransferNumList.append(transferLabelNum)
+			# correctRatio = correctTransferLabelNum*1.0/transferLabelNum
+			# print("transferLabelNum\t", transferLabelNum, "correct ratio\t", correctRatio)
+			# correctTransferRatioList.append(correctRatio)
+			# totalTransferNumList.append(transferLabelNum)
 			# print(debug)
 			cvIter += 1
 
-		print("transfer num\t", np.mean(totalTransferNumList), np.sqrt(np.var(totalTransferNumList)))
-		print("correct ratio\t", np.mean(correctTransferRatioList), np.sqrt(np.var(correctTransferRatioList)))
+		# print("transfer num\t", np.mean(totalTransferNumList), np.sqrt(np.var(totalTransferNumList)))
+		# print("correct ratio\t", np.mean(correctTransferRatioList), np.sqrt(np.var(correctTransferRatioList)))
 		f = open("al_tl_judge_6_total.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])
@@ -578,7 +571,7 @@ if __name__ == "__main__":
 	raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('../data/rice_pt_sdh').readlines()]
 	tmp = np.genfromtxt('../data/rice_hour_sdh', delimiter=',')
 	target_label = tmp[:,-1]
-	print 'class count of true labels of all ex:\n', ct(target_label)
+	print 'target ---- class count of true labels of all ex:\n', ct(target_label)
 
 	target_fn = get_name_features(raw_pt)
 	fold = 10
@@ -597,6 +590,7 @@ if __name__ == "__main__":
 	source_fd = fd2
 	source_label = input2[:,-1]
 
+	print 'source ---- class count of true labels of all ex:\n', ct(source_label)
 
 	al = transferActiveLearning(fold, rounds, source_fd, source_label, target_fd, target_label, target_fn)
 

@@ -94,21 +94,6 @@ class transferActiveLearning:
 		except Exception as e:
 			self.tao = self.tao
 
-	# def update_tao(self, labeled_set):
-
-	# 	dist_inter = []
-	# 	pair = list(itertools.combinations(labeled_set,2))
-
-	# 	for p in pair:
-	# 		if self.m_target_label[p[0]] != self.m_target_label[p[1]]:
-	# 			d = np.linalg.norm(self.m_target_fn[p[0]]-self.m_target_fn[p[1]])
-	# 			dist_inter.append(d)
-
-	# 	try:
-	# 		self.tao = self.alpha_*min(dist_inter)/2 #set tao be the min(inter-class pair dist)/2
-	# 	except Exception as e:
-	# 		self.tao = self.tao
-
 	def update_pseudo_set(self, new_ex_id, new_ex_label, cluster_id, p_idx, p_label, p_dist):
 
 		tmp = []
