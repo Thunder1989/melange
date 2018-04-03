@@ -48,7 +48,6 @@ class active_learning:
 		self.tao = 0
 		self.alpha_ = 1
 
-		self.clf = LinearSVC()
 		self.ex_id = dd(list)
 
 
@@ -136,7 +135,7 @@ class active_learning:
 		sub_fn = self.fn[c_ex_id]
 
 		#sub-cluster the cluster
-		c_ = KMeans(init='k-means++', n_clusters=len(np.unique(sub_label)), n_init=10)
+		c_ = KMeans(init='k-means++', n_clusters=len(np.unique(sub_label)), n_init=10, random_state=3)
 		c_.fit(sub_fn)
 		dist = np.sort(c_.transform(sub_fn))
 
@@ -152,11 +151,12 @@ class active_learning:
 				idx = v[0][0]
 				c_ex_id.remove(idx) #update the training set by removing selected ex id
 
-                if len(c_ex_id) == 0:
-                    self.ex_id.pop(c_idx)
-                else:
-                    self.ex_id[c_idx] = c_ex_id
-                break
+				if len(c_ex_id) == 0:
+					self.ex_id.pop(c_idx)
+				else:
+					self.ex_id[c_idx] = c_ex_id
+				
+				break
 
 		return idx, c_idx
 
@@ -246,6 +246,8 @@ class active_learning:
 		cvIter = 0
 		totalAccList = [[] for i in range(10)]
 		for foldIndex in range(foldNum):
+			self.clf = LinearSVC(random_state=3)
+
 			train = []
 			for preFoldIndex in range(foldIndex):
 				train.extend(foldInstanceList[preFoldIndex])
@@ -264,7 +266,7 @@ class active_learning:
 			label_test = self.label[test]
 
 			fn_train = self.fn[train]
-			c = KMeans(init='k-means++', n_clusters=28, n_init=10)
+			c = KMeans(init='k-means++', n_clusters=28, n_init=10, random_state=3)
 			c.fit(fn_train)
 			dist = np.sort(c.transform(fn_train))
 
@@ -353,7 +355,7 @@ class active_learning:
 			#     p_acc.append(sum(self.label[p_idx]==p_label)/float(len(p_label)))
 			# print '----------------------------------------------------'
 			# print '----------------------------------------------------'
-		f = open("al_2.txt", "w")
+		f = open("al_2_120.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])
 			for j in range(totalAlNum):
@@ -391,7 +393,7 @@ if __name__ == "__main__":
 
 	fn = get_name_features(raw_pt)
 	fold = 10
-	rounds = 100
+	rounds = 120
 	al = active_learning(fold, rounds, fn, label)
 
 	al.run_CV()
