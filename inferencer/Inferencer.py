@@ -134,7 +134,7 @@ class Inferencer(object):
 
 
     # ESSENTIAL
-    def select_example(self, example_num):
+    def select_example(self, example_num=1):
         """Select the most informative N samples from the unlabeled data.
 
         This function is mainly used by active function frameworks to select

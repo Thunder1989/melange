@@ -34,7 +34,7 @@ def get_name_features(names):
 
         return fn
 
-class active_learning:
+class active_learning():
 
     def __init__(self, fold, rounds, fn, label):
 
@@ -50,12 +50,12 @@ class active_learning:
 
         self.clf = LinearSVC()
         self.ex_id = dd(list)
+        self.labeled_set = []
 
-
-    def update_tao(self, labeled_set):
+    def update_tao(self):
 
         dist_inter = []
-        pair = list(itertools.combinations(labeled_set,2))
+        pair = list(itertools.combinations(self.labeled_set,2))
 
         for p in pair:
 
@@ -110,7 +110,7 @@ class active_learning:
         return p_idx, p_label, p_dist
 
 
-    def select_example(self, labeled_set):
+    def select_example(self):
 
         sub_pred = dd(list) #Mn predicted labels for each cluster
         idx = 0
@@ -128,7 +128,7 @@ class active_learning:
         rank = sorted(rank, key=lambda x: x[-1], reverse=True)
 
         if not rank:
-            raise ValueError('no clusters found in this iteration!')        
+            raise ValueError('no clusters found in this iteration!')
 
         c_idx = rank[0][0] #pick the 1st cluster on the rank, ordered by label entropy
         c_ex_id = self.ex_id[c_idx] #examples in the cluster picked
@@ -147,22 +147,22 @@ class active_learning:
             ex_[i] = sorted(j, key=lambda x: x[-1])
         for k,v in ex_.items():
 
-            if v[0][0] not in labeled_set: #find the first unlabeled ex
+            if v[0][0] not in self.labeled_set: #find the first unlabeled ex
 
                 idx = v[0][0]
                 break
 
         return idx, c_idx
 
-        
-    def get_pred_acc(self, fn_test, label_test, labeled_set, pseudo_set, pseudo_label):
+
+    def get_pred_acc(self, fn_test, label_test, pseudo_set, pseudo_label):
 
         if not pseudo_set:
-            fn_train = self.fn[labeled_set]
-            label_train = self.label[labeled_set]
+            fn_train = self.fn[self.labeled_set]
+            label_train = self.label[self.labeled_set]
         else:
-            fn_train = self.fn[np.hstack((labeled_set, pseudo_set))]
-            label_train = np.hstack((self.label[labeled_set], pseudo_label))
+            fn_train = self.fn[np.hstack((self.labeled_set, pseudo_set))]
+            label_train = np.hstack((self.label[self.labeled_set], pseudo_label))
 
         self.clf.fit(fn_train, label_train)
         fn_preds = self.clf.predict(fn_test)
@@ -230,7 +230,7 @@ class active_learning:
                 ex_N.append([i,len(ex[i])])
             ex_N = sorted(ex_N, key=lambda x: x[-1],reverse=True)
 
-            km_idx = []
+            self.labeled_set = []
             p_idx = []
             p_label = []
             p_dist = dd()
@@ -240,17 +240,17 @@ class active_learning:
 
                 c_idx = ee[0] #cluster id
                 idx = ex[c_idx][0][0] #id of ex closest to centroid of cluster
-                km_idx.append(idx)
+                self.labeled_set.append(idx)
                 ctr+=1
 
                 if ctr<3:
                     continue
 
-                self.update_tao(km_idx)
+                self.update_tao()
 
                 p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
 
-                acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
+                acc = self.get_pred_acc(fn_test, label_test, p_idx, p_label)
                 self.acc_sum[ctr-1].append(acc)
 
 
@@ -258,26 +258,26 @@ class active_learning:
             ex_al = [] #track ex added on each iter
             fn_test = self.fn[test]
             label_test = self.label[test]
-            for rr in range(ctr, rounds):
+            for rr in range(ctr, self.rounds):
 
                 if not p_idx:
-                    fn_train = self.fn[km_idx]
-                    label_train = self.label[km_idx]
+                    fn_train = self.fn[self.labeled_set]
+                    label_train = self.label[self.labeled_set]
                 else:
-                    fn_train = self.fn[np.hstack((km_idx, p_idx))]
-                    label_train = np.hstack((self.label[km_idx], p_label))
+                    fn_train = self.fn[np.hstack((self.labeled_set, p_idx))]
+                    label_train = np.hstack((self.label[self.labeled_set], p_label))
 
-                self.clf.fit(fn_train, label_train)                        
+                self.clf.fit(fn_train, label_train)
 
-                idx, c_idx, = self.select_example(km_idx)                
-                km_idx.append(idx)
+                idx, c_idx, = self.select_example()
+                self.labeled_set.append(idx)
                 cl_id.append(c_idx) #track picked cluster id on each iteration
                 # ex_al.append([rr,key,v[0][-2],self.label[idx],raw_pt[idx]]) #for debugging
 
-                self.update_tao(km_idx)
+                self.update_tao()
                 p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
-                
-                acc = self.get_pred_acc(fn_test, label_test, km_idx, p_idx, p_label)
+
+                acc = self.get_pred_acc(fn_test, label_test, p_idx, p_label)
                 self.acc_sum[rr].append(acc)
 
             print '# of p label', len(p_label)
@@ -301,8 +301,8 @@ class active_learning:
 
 if __name__ == "__main__":
 
-    raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('../data/rice_pt_soda').readlines()]
-    tmp = np.genfromtxt('../data/rice_hour_soda', delimiter=',')
+    raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('../../data/rice_pt').readlines()]
+    tmp = np.genfromtxt('../../data/rice_hour', delimiter=',')
     label = tmp[:,-1]
     print 'class count of true labels of all ex:\n', ct(label)
 
