@@ -86,18 +86,3 @@ class active_learning_interface(Inferencer):
 
         self.learner.run_CV()
 
-
-if __name__ == "__main__":
-
-    mapping = {1:'co2',2:'humidity',4:'rmt',5:'status',6:'stpt',7:'flow',8:'HW sup',9:'HW ret',10:'CW sup',11:'CW ret',12:'SAT',13:'RAT',17:'MAT',18:'C enter',19:'C leave',21:'occu'}
-
-    fold = 10
-    rounds = 100
-    al = active_learning_interface(
-        target_building='rice',
-        fold=fold,
-        rounds=rounds
-        )
-
-    al.run_auto()
-
