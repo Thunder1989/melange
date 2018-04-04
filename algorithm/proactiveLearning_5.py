@@ -1,5 +1,6 @@
 """
 active transfer learning we use the lower bound to estimate whether we should trust the classifer or not. LCB and we try K times to see whether it could past. If K times pass the judge classifier, we use the instance which pass the judge classifier. Otherwise, we use the first one to ask for human label. 
+We use the entropy times the distance to compute the score and plus the CB
 """
 
 import numpy as np
@@ -72,7 +73,7 @@ class transferActiveLearning:
 
 ### track top k examples try to pass judgeClassifier
 		self.m_topKExList = []
-		self.m_topK = 3
+		self.m_topK = 5
 
 	def update_tao(self, al_tl_fn_train, al_tl_label_train):
 
@@ -142,61 +143,91 @@ class transferActiveLearning:
 		# topKidxList = []
 		# topKcidxList = []
 
+		idxScore = {}
+		idxCluster = {} ##clusterID:idx
+
 		for k,v in self.ex_id.items():
 			sub_pred[k] = self.clf.predict(self.m_target_fn[v]) #predict labels for cluster learning set
 
 		#entropy-based cluster selection
-		rank = []
+		rank = {}
 		for k,v in sub_pred.items():
 			count = ct(v).values()
 			count[:] = [i/float(max(count)) for i in count]
 			H = np.sum(-p*math.log(p,2) for p in count if p!=0)
-			rank.append([k,len(v),H])
-		rank = sorted(rank, key=lambda x: x[-1], reverse=True)
+			rank.setdefault(k, H)
+		# rank = sorted(rank, key=lambda x: x[-1], reverse=True)
 
-		if not rank:
+		rankedClusterList = sorted(rank, key=rank.__getitem__, reverse=True)
+		if not rankedClusterList:
 			raise ValueError('no clusters found in this iteration!')
 
-		c_idx = rank[0][0] #pick the 1st cluster on the rank, ordered by label entropy
-		c_ex_id = self.ex_id[c_idx] #examples in the cluster picked
-		sub_label = sub_pred[c_idx] #used when choosing cluster by H
-		sub_fn = self.m_target_fn[c_ex_id]
+		for k, v in self.ex_id.items():
+			idNum = len(v)
+			for idIndex in range(idNum):
+				idx = v[idIndex]
+				idxScore[idx] = rank[k]
+				idxCluster[idx] = k
 
-		#sub-cluster the cluster
-		c_ = KMeans(init='k-means++', n_clusters=len(np.unique(sub_label)), n_init=10, random_state=3)
-		c_.fit(sub_fn)
-		dist = np.sort(c_.transform(sub_fn))
+				# idxScore[idx] *= self.getConfidenceBound(idx)
 
-		ex_ = dd(list)
-		maxExNum = 0
-		totalLen = 0
+		for k, v in self.ex_id.items():
+			c_idx = k
+		# c_idx = rank[0][0] #pick the 1st cluster on the rank, ordered by label entropy
+			c_ex_id = self.ex_id[c_idx] #examples in the cluster picked
+			sub_label = sub_pred[c_idx] #used when choosing cluster by H
+			sub_fn = self.m_target_fn[c_ex_id]
 
-		for i,j,k,l in zip(c_.labels_, c_ex_id, dist, sub_label):
-			ex_[i].append([j,l,k[0]])
-		for i,j in ex_.items(): #sort by ex. dist to the centroid for each C
-			ex_[i] = sorted(j, key=lambda x: x[-1])
-			totalLen += len(ex_[i])
-			if len(ex_[i]) > maxExNum:
-				maxExNum = len(ex_[i])
+			#sub-cluster the cluster
+			c_ = KMeans(init='k-means++', n_clusters=len(np.unique(sub_label)), n_init=10, random_state=3)
+			c_.fit(sub_fn)
+			dist = np.sort(c_.transform(sub_fn))
 
-		candidateIdxList = []
+			ex_ = dd(list)
+			maxExNum = 0
+			totalLen = 0
 
+			for i,j,k,l in zip(c_.labels_, c_ex_id, dist, sub_label):
+				ex_[i].append([j,l,k[0]])
+				if j not in idxScore.keys():
+					print("error\t", j)
+				if k[0] == 0.0:
+					idxScore[j] *= 1e8
+				else:
+					idxScore[j] *= 1/k[0]
 
-		for subIndex in range(maxExNum):
-			for k,v in ex_.items():
+			# for i,j in ex_.items(): #sort by ex. dist to the centroid for each C
+			# 	ex_[i] = sorted(j, key=lambda x: x[-1])
+			# 	totalLen += len(ex_[i])
+			# 	if len(ex_[i]) > maxExNum:
+			# 		maxExNum = len(ex_[i])
+
+		candidateIdxList = sorted(idxScore, key=idxScore.__getitem__, reverse=True)
+
+		for 
+
+		# for subIndex in range(maxExNum):
+		# 	for k,v in ex_.items():
 				
-				if subIndex >= len(ex_[k]):
-						continue
-				if v[subIndex][0] not in labeled_set: 
-					candidateIdxList.append(v[subIndex][0])
+		# 		if subIndex >= len(ex_[k]):
+		# 				continue
+		# 		if v[subIndex][0] not in labeled_set: 
+		# 			candidateIdxList.append(v[subIndex][0])
 
-		print("totalLen\t", totalLen, len(candidateIdxList))
+		# print("totalLen\t", totalLen, len(candidateIdxList))
+		candidateClusterList = []
 
 		if len(candidateIdxList) < self.m_topK:
 			print("less than topk\t", self.m_topK, len(candidateIdxList))
-			return candidateIdxList, c_idx
+			for idIndex in range(len(candidateIdxList)):
+				idx = candidateIdxList[idIndex]
+				candidateClusterList.append(idxCluster[idx])
+			return candidateIdxList, candidateClusterList
 		else:
-			return candidateIdxList[:self.m_topK], c_idx
+			for idIndex in range(self.m_topK):
+				idx = candidateIdxList[idIndex]
+				candidateClusterList.append(idxCluster[idx])
+			return candidateIdxList[:self.m_topK], candidateClusterList
 
 			# if v[subIndex][0] not in labeled_set: #find the first unlabeled ex
 
@@ -275,7 +306,7 @@ class transferActiveLearning:
 		transferLabelFlag = False
 		idxNum = len(idxList)
 
-		transferIdx = 0
+		transferIndex = 0
 		transferLabel = 0
 
 		for idxIndex in range(idxNum):
@@ -283,16 +314,16 @@ class transferActiveLearning:
 			transferFlag, predLabel = self.transferOrNot(transferFeatureList, transferFlagList, idx)
 
 			if transferFlag == True:
-				transferIdx = idx
+				transferIndex = idxIndex
 				transferLabel = predLabel
 			
-				return transferIdx, transferFlag, transferLabel
+				return transferIndex, transferFlag, transferLabel
 
 		idx = idxList[0]
-		transferIdx = idx
+		transferIndex = 0
 		transferFlag, transferLabel = self.transferOrNot(transferFeatureList, transferFlagList, idx)
 
-		return transferIdx, transferFlag, transferLabel
+		return transferIndex, transferFlag, transferLabel
 
 	def transferOrNot(self, transferFeatureList, transferFlagList, idx):
 		
@@ -440,6 +471,7 @@ class transferActiveLearning:
 					if label_idx == self.m_target_label[idx]:
 						correctTransferLabelNum += 1.0
 						print('transfer correct')
+						print(debug)
 					else:
 						print(queryIteration, "error transfer label\t", label_transfer, "true label", self.m_target_label[idx])
 
@@ -503,33 +535,25 @@ class transferActiveLearning:
 				# print("queryIteration\t", queryIteration)
 
 				if not p_idx:
-					# fn_train_iter = self.m_target_fn[km_idx]
-					# label_train_iter = self.m_target_label[km_idx]
-					# fn_train_iter = self.m_target_fn[km_idx]
-					# label_train_iter = self.m_target_label[km_idx]
-
 					fn_train_iter = np.array(al_tl_fn_train)
 					label_train_iter = np.array(al_tl_label_train)
 				else:
 					fn_train_iter = self.m_target_fn[p_idx]
 					label_train_iter = p_label
-
-					# fn_train_iter = self.m_target_fn[np.hstack((km_idx, p_idx))]
-					# label_train_iter = np.hstack((self.m_target_label[km_idx], p_label))
-					# fn_train_iter = self.m_target_fn[np.hstack((km_idx, p_idx))]
-					# label_train_iter = np.hstack((self.m_target_label[km_idx], p_label))
 					fn_train_iter = np.vstack((fn_train_iter, np.array(al_tl_fn_train)))
 					label_train_iter = np.hstack((label_train_iter, al_tl_label_train))
 
 				self.clf.fit(fn_train_iter, label_train_iter) 
 				# print(km_idx)                         
-				topKidxList, c_idx = self.select_example(km_idx)  
+				topKidxList, topKcidxList = self.select_example(km_idx)  
 
 				activeLabelFlag = False
 
-				transferIdx, transferLabelFlag, label_transfer = self.topKTransferOrNot(transferFeatureList, transferFlagList, topKidxList)
+				transferIndex, transferLabelFlag, label_transfer = self.topKTransferOrNot(transferFeatureList, transferFlagList, topKidxList)
 
-				idx = transferIdx
+				idx = topKidxList[transferIndex]
+				c_idx = topKcidxList[transferIndex]
+				
 				tmp = self.ex_id[c_idx]
 				tmp.remove(idx)
 
@@ -597,10 +621,7 @@ class transferActiveLearning:
 		print("transfer num\t", np.mean(totalTransferNumList), np.sqrt(np.var(totalTransferNumList)))
 		print("correct ratio\t", np.mean(correctTransferRatioList), np.sqrt(np.var(correctTransferRatioList)))
 
-		totalFileName = "proactiveLearning_2_total_"+str(self.m_topK)+".txt"
-		humanFileName = "proactiveLearning_2_human_"+str(self.m_topK)+".txt"
-
-		f = open(totalFileName, "w")
+		f = open("proactiveLearning_4_total.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])
 			for j in range(totalAlNum):
@@ -608,7 +629,7 @@ class transferActiveLearning:
 			f.write("\n")
 		f.close()
 
-		f = open(humanFileName, "w")
+		f = open("proactiveLearning_4_human.txt", "w")
 		for i in range(10):
 			totalAlNum = len(activeAccList[i])
 			for j in range(totalAlNum):
