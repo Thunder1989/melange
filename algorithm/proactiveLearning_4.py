@@ -1,6 +1,6 @@
 """
 active transfer learning we use the lower bound to estimate whether we should trust the classifer or not. LCB and we try K times to see whether it could past. If K times pass the judge classifier, we use the instance which pass the judge classifier. Otherwise, we use the first one to ask for human label. 
-We use the entropy times the distance to compute the score.
+We use the entropy times the distance to compute the score and plus the CB
 """
 
 import numpy as np
@@ -169,6 +169,8 @@ class transferActiveLearning:
 				idxScore[idx] = rank[k]
 				idxCluster[idx] = k
 
+				idxScore[idx] *= self.getConfidenceBound(idx)
+
 		for k, v in self.ex_id.items():
 			c_idx = k
 		# c_idx = rank[0][0] #pick the 1st cluster on the rank, ordered by label entropy
@@ -189,12 +191,10 @@ class transferActiveLearning:
 				ex_[i].append([j,l,k[0]])
 				if j not in idxScore.keys():
 					print("error\t", j)
-				# print("dist\t", k[0])
 				if k[0] == 0.0:
 					idxScore[j] *= 1e8
 				else:
 					idxScore[j] *= 1/k[0]
-
 
 			# for i,j in ex_.items(): #sort by ex. dist to the centroid for each C
 			# 	ex_[i] = sorted(j, key=lambda x: x[-1])
@@ -552,7 +552,7 @@ class transferActiveLearning:
 
 				idx = topKidxList[transferIndex]
 				c_idx = topKcidxList[transferIndex]
-
+				
 				tmp = self.ex_id[c_idx]
 				tmp.remove(idx)
 
