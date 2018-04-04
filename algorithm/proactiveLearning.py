@@ -555,7 +555,7 @@ class transferActiveLearning:
 
 		print("transfer num\t", np.mean(totalTransferNumList), np.sqrt(np.var(totalTransferNumList)))
 		print("correct ratio\t", np.mean(correctTransferRatioList), np.sqrt(np.var(correctTransferRatioList)))
-		f = open("al_tl_judge_6_total.txt", "w")
+		f = open("proactiveLearning_total.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])
 			for j in range(totalAlNum):
@@ -563,7 +563,7 @@ class transferActiveLearning:
 			f.write("\n")
 		f.close()
 
-		f = open("proactiveLearning.txt", "w")
+		f = open("proactiveLearning_human.txt", "w")
 		for i in range(10):
 			totalAlNum = len(activeAccList[i])
 			for j in range(totalAlNum):

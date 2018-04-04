@@ -355,7 +355,7 @@ class active_learning:
 			#     p_acc.append(sum(self.label[p_idx]==p_label)/float(len(p_label)))
 			# print '----------------------------------------------------'
 			# print '----------------------------------------------------'
-		f = open("al_2_120.txt", "w")
+		f = open("al_2.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])
 			for j in range(totalAlNum):
