@@ -168,23 +168,33 @@ class transferActiveLearning:
 		dist = np.sort(c_.transform(sub_fn))
 
 		ex_ = dd(list)
-		minExNum = 20
+		maxExNum = 0
+		totalLen = 0
+
 		for i,j,k,l in zip(c_.labels_, c_ex_id, dist, sub_label):
 			ex_[i].append([j,l,k[0]])
 		for i,j in ex_.items(): #sort by ex. dist to the centroid for each C
 			ex_[i] = sorted(j, key=lambda x: x[-1])
-			if len(ex_[i]) < minExNum:
-				minExNum = len(ex_[i])
+			totalLen += len(ex_[i])
+			if len(ex_[i]) > maxExNum:
+				maxExNum = len(ex_[i])
 
 		candidateIdxList = []
 
-		for subIndex in range(minExNum):
+
+		for subIndex in range(maxExNum):
 			for k,v in ex_.items():
+				
+				if subIndex >= len(ex_[k]):
+						continue
 				if v[subIndex][0] not in labeled_set: 
 					candidateIdxList.append(v[subIndex][0])
 
+		print("totalLen\t", totalLen, len(candidateIdxList))
+
 		if len(candidateIdxList) < self.m_topK:
-			print("less than topk\t", self.m_topK)
+			print("less than topk\t", self.m_topK, len(candidateIdxList))
+			return candidateIdxList, c_idx
 		else:
 			return candidateIdxList[:self.m_topK], c_idx
 
@@ -261,7 +271,7 @@ class transferActiveLearning:
 		else:
 			return False
 
-	def topKTransferOrNot(self, transferFeatureList, transferFlagList, idxList)
+	def topKTransferOrNot(self, transferFeatureList, transferFlagList, idxList):
 		transferLabelFlag = False
 		idxNum = len(idxList)
 
@@ -511,15 +521,17 @@ class transferActiveLearning:
 					fn_train_iter = np.vstack((fn_train_iter, np.array(al_tl_fn_train)))
 					label_train_iter = np.hstack((label_train_iter, al_tl_label_train))
 
-				self.clf.fit(fn_train_iter, label_train_iter)                        
-				topKidxList, c_idx, = self.select_example(km_idx)    
+				self.clf.fit(fn_train_iter, label_train_iter) 
+				# print(km_idx)                         
+				topKidxList, c_idx = self.select_example(km_idx)  
 
 				activeLabelFlag = False
 
 				transferIdx, transferLabelFlag, label_transfer = self.topKTransferOrNot(transferFeatureList, transferFlagList, topKidxList)
 
+				idx = transferIdx
 				tmp = self.ex_id[c_idx]
-				tmp.remove(transferIdx)
+				tmp.remove(idx)
 
 				if len(tmp) == 0:
 					self.ex_id.pop(c_idx)
