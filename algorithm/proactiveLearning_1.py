@@ -525,15 +525,15 @@ class transferActiveLearning:
 					activeAccList[cvIter].append(acc)
 				totalAccList[cvIter].append(acc)
 
-			# correctRatio = correctTransferLabelNum*1.0/transferLabelNum
-			# print("transferLabelNum\t", transferLabelNum, "correct ratio\t", correctRatio)
-			# correctTransferRatioList.append(correctRatio)
-			# totalTransferNumList.append(transferLabelNum)
+			correctRatio = correctTransferLabelNum*1.0/transferLabelNum
+			print("transferLabelNum\t", transferLabelNum, "correct ratio\t", correctRatio)
+			correctTransferRatioList.append(correctRatio)
+			totalTransferNumList.append(transferLabelNum)
 			# print(debug)
 			cvIter += 1
 
-		# print("transfer num\t", np.mean(totalTransferNumList), np.sqrt(np.var(totalTransferNumList)))
-		# print("correct ratio\t", np.mean(correctTransferRatioList), np.sqrt(np.var(correctTransferRatioList)))
+		print("transfer num\t", np.mean(totalTransferNumList), np.sqrt(np.var(totalTransferNumList)))
+		print("correct ratio\t", np.mean(correctTransferRatioList), np.sqrt(np.var(correctTransferRatioList)))
 		f = open("proactiveLearning_1_total.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])
