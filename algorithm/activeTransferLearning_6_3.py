@@ -425,7 +425,6 @@ class transferActiveLearning:
 				# transferLabelFlag = False
 
 				transferLabelFlag, label_transfer = self.transferOrNot(transferFeatureList, transferFlagList, idx)
-				self.updateConfidenceBound(idx)
 				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
 				# print(transferLabelFlag)
 				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
@@ -446,6 +445,7 @@ class transferActiveLearning:
 						print(queryIteration, "error transfer label\t", label_transfer, "true label", self.m_target_label[idx])
 
 				else:
+					self.updateConfidenceBound(idx)
 					#active learning
 					activeLabelNum += 1.0
 					activeLabelFlag = True
@@ -550,7 +550,6 @@ class transferActiveLearning:
 				# 	self.judgeClassifier.fit(np.array(transferFeatureList), np.array(transferFlagList))
 				
 				transferLabelFlag, label_transfer = self.transferOrNot(transferFeatureList, transferFlagList, idx)
-				self.updateConfidenceBound(idx)				
 				# print("queryIteration\t", queryIteration, "activeLabelNum\t", activeLabelNum, transferLabelFlag)
 				# transferLabelFlag = False
 				if transferLabelFlag:
@@ -568,6 +567,8 @@ class transferActiveLearning:
 						print(queryIteration, "error transfer label\t", label_transfer, "true label", self.m_target_label[idx])
 				else:
 					##active 
+					self.updateConfidenceBound(idx)				
+
 					activeLabelNum += 1.0
 					activeLabelFlag = True
 					label_idx = self.m_target_label[idx]
@@ -611,7 +612,7 @@ class transferActiveLearning:
 
 		# print("transfer num\t", np.mean(totalTransferNumList), np.sqrt(np.var(totalTransferNumList)))
 		# print("correct ratio\t", np.mean(correctTransferRatioList), np.sqrt(np.var(correctTransferRatioList)))
-		f = open("al_tl_judge_6_total.txt", "w")
+		f = open("al_tl_6_3_total.txt", "w")
 		for i in range(10):
 			totalAlNum = len(totalAccList[i])
 			for j in range(totalAlNum):
@@ -619,7 +620,7 @@ class transferActiveLearning:
 			f.write("\n")
 		f.close()
 
-		f = open("al_tl_judge_6_3_2.txt", "w")
+		f = open("al_tl_6_3_human.txt", "w")
 		for i in range(10):
 			totalAlNum = len(activeAccList[i])
 			for j in range(totalAlNum):
