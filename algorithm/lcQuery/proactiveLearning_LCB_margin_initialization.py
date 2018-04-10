@@ -29,7 +29,7 @@ from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "proactive_margin_0.2"
+modelName = "proactive_margin_initialization"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
@@ -134,7 +134,7 @@ class _ProactiveLearning:
 
 	def get_judgeClassifier_prob(self, judgeParam, feature, CB):
 		rawProb = np.dot(judgeParam, np.transpose(feature))
-		judgeProbThreshold = 0.2
+		judgeProbThreshold = 0.5
 		if sigmoid(rawProb-self.m_cbRate*CB) > judgeProbThreshold:
 			return True
 		else:
@@ -193,7 +193,7 @@ class _ProactiveLearning:
 		for foldIndex in range(foldNum):
 			
 			# self.clf = LinearSVC(random_state=3)
-
+			initializationSteps = 20
 			self.m_clf = LR(random_state=3)
 			self.m_judgeClassifier = LR(random_state=3)
 
@@ -246,6 +246,41 @@ class _ProactiveLearning:
 			correctTransferLabelNum = 0.0
 			correctUntransferLabelNum = 0.0
 
+			while activeLabelNum < initializationSteps:
+				self.m_clf.fit(targetNameFeatureIter, targetLabelIter)
+				
+				exId = self.select_example(unlabeledExList)
+				exLabel = self.m_targetLabel[exId]
+
+				transferLabelFlag, transferLabel = self.get_transfer_flag(transferFeatureList, transferFlagList, exId)
+
+				if transferLabel == exLabel:
+					print("correct transferLabel\t", transferLabel, "exLabel\t", exLabel)
+					transferFlagList.append(1.0)
+					transferFeatureList.append(self.m_targetNameFeature[exId])
+				else:
+					print("error transferLabel\t", transferLabel, "exLabel\t", exLabel)
+					transferFlagList.append(0.0)
+					transferFeatureList.append(self.m_targetNameFeature[exId])
+
+				self.update_confidence_bound(exId)
+				activeLabelNum += 1.0
+				activeLabelFlag = True
+
+				targetNameFeatureIter = np.vstack((targetNameFeatureIter, self.m_targetNameFeature[exId]))
+				targetLabelIter = np.hstack((targetLabelIter, exLabel))
+
+				labeledExList.append(exId)
+				unlabeledExList.remove(exId)
+
+				acc = self.get_pred_acc(targetNameFeatureTest, targetLabelTest, targetNameFeatureIter, targetLabelIter)
+				totalAccList[cvIter].append(acc)
+				if activeLabelFlag:
+					humanAccList[cvIter].append(acc)
+				queryIter += 1
+
+
+			untransferLabelNum = 0
 			while activeLabelNum < rounds:
 
 				# targetNameFeatureIter = self.m_targetNameFeature[labeledExList]
@@ -274,6 +309,7 @@ class _ProactiveLearning:
 					else:
 						print("query iteration", queryIter, "error transfer label\t", exLabel, "true label", self.m_targetLabel[exId])
 				else:
+					untransferLabelNum += 1.0
 					self.update_confidence_bound(exId)
 					activeLabelNum += 1.0
 					activeLabelFlag = True
@@ -301,7 +337,7 @@ class _ProactiveLearning:
 					humanAccList[cvIter].append(acc)
 				queryIter += 1
 
-			correctUntransferRatio = correctUntransferLabelNum*1.0/(activeLabelNum-3.0)
+			correctUntransferRatio = correctUntransferLabelNum*1.0/untransferLabelNum
 			correctUntransferRatioList.append(correctUntransferRatio)
 
 			correctTransferRatio = correctTransferLabelNum*1.0/transferLabelNum
