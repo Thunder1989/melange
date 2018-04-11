@@ -29,7 +29,7 @@ from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "proactive_margin_initialization"
+modelName = "proactive_LCB_margin_initialization"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
@@ -193,7 +193,7 @@ class _ProactiveLearning:
 		for foldIndex in range(foldNum):
 			
 			# self.clf = LinearSVC(random_state=3)
-			initializationSteps = 20
+			initializationSteps = 28
 			self.m_clf = LR(random_state=3)
 			self.m_judgeClassifier = LR(random_state=3)
 
@@ -339,12 +339,12 @@ class _ProactiveLearning:
 
 			correctUntransferRatio = correctUntransferLabelNum*1.0/untransferLabelNum
 			correctUntransferRatioList.append(correctUntransferRatio)
-
+			print("untransferLabelNum\t", untransferLabelNum)
 			correctTransferRatio = correctTransferLabelNum*1.0/transferLabelNum
 			print("transferLabelNum\t", transferLabelNum, "correct transfer ratio\t", correctTransferRatio)
 			correctTransferRatioList.append(correctTransferRatio)
 			totalTransferNumList.append(transferLabelNum)
-
+			print("total iteration\t", queryIter)
 			cvIter += 1      
 		
 		print("transfer num\t", np.mean(totalTransferNumList), np.sqrt(np.var(totalTransferNumList)))

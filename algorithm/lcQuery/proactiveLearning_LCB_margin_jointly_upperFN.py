@@ -29,7 +29,7 @@ from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "proactive_LCB_margin_jointly_8020"
+modelName = "proactive_LCB_margin_jointly_upperFN"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
@@ -297,8 +297,8 @@ class _ProactiveLearning:
 						print("query iteration", queryIter, "error transfer label\t", exLabel, "true label", self.m_targetLabel[exId])
 				else:
 					self.update_judge_confidence_bound(exId)
-					activeLabelNum += 1.0
-					activeLabelFlag = True
+					# activeLabelNum += 1.0
+					# activeLabelFlag = True
 
 					exLabel = self.m_targetLabel[exId]
 					targetNameFeatureIter = np.vstack((targetNameFeatureIter, self.m_targetNameFeature[exId]))
@@ -311,6 +311,9 @@ class _ProactiveLearning:
 						transferFlagList.append(1.0)
 						transferFeatureList.append(self.m_targetNameFeature[exId])
 					else:
+						activeLabelNum += 1.0
+						activeLabelFlag = True
+
 						transferFlagList.append(0.0)
 						transferFeatureList.append(self.m_targetNameFeature[exId])
 
