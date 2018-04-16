@@ -1,24 +1,10 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import math
-import random
 import re
-import itertools
-import pylab as pl
 
 from collections import defaultdict as dd
-from collections import Counter as ct
-
-from sklearn.cluster import KMeans
-from sklearn.mixture import DPGMM
 
 from sklearn.feature_extraction.text import CountVectorizer as CV
-from sklearn.cross_validation import KFold
-from sklearn.ensemble import RandomForestClassifier as RFC
 from sklearn.svm import LinearSVC
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import confusion_matrix as CM
-from sklearn.preprocessing import normalize
 
 from Inferencer import Inferencer
 from algorithm.active_learning import active_learning
@@ -57,12 +43,6 @@ class active_learning_interface(Inferencer):
         tmp = np.genfromtxt('../data/' + target_building + '_hour', delimiter=',')
         self.fn = get_name_features(raw_pt)
         self.label = tmp[:,-1]
-
-        self.tao = 0
-        self.alpha_ = 1
-
-        self.clf = LinearSVC()
-        self.ex_id = dd(list)
 
         self.learner = active_learning(
             self.fold,
