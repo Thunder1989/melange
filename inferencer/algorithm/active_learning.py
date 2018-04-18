@@ -241,9 +241,9 @@ class active_learning():
                 c_idx = ee[0] #cluster id
                 idx = ex[c_idx][0][0] #id of ex closest to centroid of cluster
                 self.labeled_set.append(idx)
-                ctr+=1
+                ctr += 1
 
-                if ctr<3:
+                if ctr < 3:
                     continue
 
                 self.update_tao()
@@ -296,7 +296,7 @@ class active_learning():
         print 'average acc:', [np.mean(i) for i in self.acc_sum]
         print 'average p label acc:', np.mean(p_acc)
 
-        self.plot_confusion_matrix(label_test, fn_test)
+        #self.plot_confusion_matrix(label_test, fn_test)
 
 
 if __name__ == "__main__":

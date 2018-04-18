@@ -52,6 +52,13 @@ class active_learning_interface(Inferencer):
         )
 
 
+    def select_example():
+
+        idx, c_idx = self.learner.select_example()
+
+        return idx
+
+
     def update_model():
 
         pass
