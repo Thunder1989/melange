@@ -29,7 +29,7 @@ from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "proactive_margin_LCB05"
+modelName = "proactive_margin_LCB05_CbRate0002"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
@@ -73,7 +73,7 @@ class _ProactiveLearning:
 		self.m_lambda = 0.01
 		self.m_A = 0
 		self.m_AInv = 0
-		self.m_cbRate = 0.05
+		self.m_cbRate = 0.002
 
 		self.m_judgeClassifier = 0
 		self.m_clf = 0
@@ -135,7 +135,10 @@ class _ProactiveLearning:
 	def get_judgeClassifier_prob(self, judgeParam, feature, CB):
 		rawProb = np.dot(judgeParam, np.transpose(feature))
 		judgeProbThreshold = 0.5
-		if sigmoid(rawProb-self.m_cbRate*CB) > judgeProbThreshold:
+
+		cbProb = sigmoid(rawProb-self.m_cbRate*CB)
+		# print("cbProb\t", cbProb)
+		if cbProb > judgeProbThreshold:
 			return True
 		else:
 			return False
@@ -270,6 +273,7 @@ class _ProactiveLearning:
 
 				exLabel = -1
 				if transferLabelFlag:
+					print("queryIter\t", queryIter)
 					transferLabelNum += 1.0
 					activeLabelFlag = False
 					
@@ -333,6 +337,7 @@ class _ProactiveLearning:
 
 			correctUntransferRatio = correctUntransferLabelNum*1.0
 			correctUntransferRatioList.append(correctUntransferRatio)
+			print("correctUntransferRatio\t", correctUntransferRatio)
 
 			correctTransferRatio = correctTransferLabelNum*1.0/transferLabelNum
 			print("transferLabelNum\t", transferLabelNum, "correct transfer ratio\t", correctTransferRatio)

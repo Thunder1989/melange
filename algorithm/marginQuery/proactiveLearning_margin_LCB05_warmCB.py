@@ -29,7 +29,7 @@ from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "proactive_margin_LCB05_warm20"
+modelName = "proactive_margin_LCB05_warmCB"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
@@ -197,7 +197,7 @@ class _ProactiveLearning:
 		for foldIndex in range(foldNum):
 			
 			# self.clf = LinearSVC(random_state=3)
-			initializationSteps = 28
+			initializationSteps = 101
 			self.m_clf = LR(random_state=3)
 			self.m_judgeClassifier = LR(random_state=3)
 
@@ -281,6 +281,7 @@ class _ProactiveLearning:
 				
 				auditorAcc = (correctTransferLabelNum+wrongUntransferLabelNum)*1.0/(correctTransferLabelNum+wrongUntransferLabelNum+correctUntransferLabelNum+wrongTransferLabelNum)
 
+				print("initialization CB\t", self.get_confidence_bound(exId))
 				self.update_confidence_bound(exId)
 				activeLabelNum += 1.0
 				activeLabelFlag = True
@@ -298,7 +299,7 @@ class _ProactiveLearning:
 				queryIter += 1
 
 			untransferLabelNum = 0
-			realCorrectTransferLabelNum = 0
+			print("activeLabelNum\t", activeLabelNum)
 			while activeLabelNum < rounds:
 
 				# targetNameFeatureIter = self.m_targetNameFeature[labeledExList]
@@ -324,7 +325,6 @@ class _ProactiveLearning:
 
 					if exLabel == self.m_targetLabel[exId]:
 						correctTransferLabelNum += 1.0
-						realCorrectTransferLabelNum += 1.0
 					else:
 						wrongTransferLabelNum += 1.0
 						print("query iteration", queryIter, "error transfer label\t", exLabel, "true label", self.m_targetLabel[exId])
@@ -380,8 +380,8 @@ class _ProactiveLearning:
 			correctUntransferRatio = correctUntransferLabelNum*1.0
 			correctUntransferRatioList.append(correctUntransferRatio)
 
-			correctTransferRatio = realCorrectTransferLabelNum*1.0/transferLabelNum
-			print("transferLabelNum\t", realCorrectTransferLabelNum, "correct transfer ratio\t", correctTransferRatio)
+			correctTransferRatio = correctTransferLabelNum*1.0/transferLabelNum
+			print("transferLabelNum\t", transferLabelNum, "correct transfer ratio\t", correctTransferRatio)
 			correctTransferRatioList.append(correctTransferRatio)
 			totalTransferNumList.append(transferLabelNum)
 

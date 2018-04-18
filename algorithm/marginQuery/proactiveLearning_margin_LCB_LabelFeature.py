@@ -29,7 +29,7 @@ from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "proactive_margin_LCB05_warm20"
+modelName = "proactive_margin_LCB05_LabelFeature"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
@@ -150,7 +150,12 @@ class _ProactiveLearning:
 
 		CB = self.get_confidence_bound(exId)
 
-		transferFlag = self.get_judgeClassifier_prob(self.m_judgeClassifier.coef_, self.m_targetNameFeature[exId].reshape(1, -1), CB)
+		featureList4Transfer = []
+		featureList4Transfer.append(predLabel)
+		featureList4Transfer.extend(self.m_targetNameFeature[exId])
+		# print(featureList4Transfer)
+
+		transferFlag = self.get_judgeClassifier_prob(self.m_judgeClassifier.coef_, featureList4Transfer, CB)
 
 		if transferFlag:
 			return True, predLabel
@@ -197,7 +202,7 @@ class _ProactiveLearning:
 		for foldIndex in range(foldNum):
 			
 			# self.clf = LinearSVC(random_state=3)
-			initializationSteps = 28
+
 			self.m_clf = LR(random_state=3)
 			self.m_judgeClassifier = LR(random_state=3)
 
@@ -256,49 +261,6 @@ class _ProactiveLearning:
 			auditorRecallList = []
 			auditorAccList = []
 
-			while activeLabelNum < initializationSteps:
-				self.m_clf.fit(targetNameFeatureIter, targetLabelIter)
-				
-				exId = self.select_example(unlabeledExList)
-				exLabel = self.m_targetLabel[exId]
-
-				transferLabelFlag, transferLabel = self.get_transfer_flag(transferFeatureList, transferFlagList, exId)
-
-				if transferLabel == exLabel:
-					correctTransferLabelNum += 1.0
-					print("correct transferLabel\t", transferLabel, "exLabel\t", exLabel)
-					transferFlagList.append(1.0)
-					transferFeatureList.append(self.m_targetNameFeature[exId])
-				else:
-					wrongTransferLabelNum += 1.0
-					print("error transferLabel\t", transferLabel, "exLabel\t", exLabel)
-					transferFlagList.append(0.0)
-					transferFeatureList.append(self.m_targetNameFeature[exId])
-
-				auditorPrecision = 0.0
-				
-				auditorRecall = 0.0
-				
-				auditorAcc = (correctTransferLabelNum+wrongUntransferLabelNum)*1.0/(correctTransferLabelNum+wrongUntransferLabelNum+correctUntransferLabelNum+wrongTransferLabelNum)
-
-				self.update_confidence_bound(exId)
-				activeLabelNum += 1.0
-				activeLabelFlag = True
-
-				targetNameFeatureIter = np.vstack((targetNameFeatureIter, self.m_targetNameFeature[exId]))
-				targetLabelIter = np.hstack((targetLabelIter, exLabel))
-
-				labeledExList.append(exId)
-				unlabeledExList.remove(exId)
-
-				acc = self.get_pred_acc(targetNameFeatureTest, targetLabelTest, targetNameFeatureIter, targetLabelIter)
-				totalAccList[cvIter].append(acc)
-				if activeLabelFlag:
-					humanAccList[cvIter].append(acc)
-				queryIter += 1
-
-			untransferLabelNum = 0
-			realCorrectTransferLabelNum = 0
 			while activeLabelNum < rounds:
 
 				# targetNameFeatureIter = self.m_targetNameFeature[labeledExList]
@@ -313,6 +275,7 @@ class _ProactiveLearning:
 
 				exLabel = -1
 				if transferLabelFlag:
+					print("queryIter\t", queryIter)
 					transferLabelNum += 1.0
 					activeLabelFlag = False
 					
@@ -324,12 +287,10 @@ class _ProactiveLearning:
 
 					if exLabel == self.m_targetLabel[exId]:
 						correctTransferLabelNum += 1.0
-						realCorrectTransferLabelNum += 1.0
 					else:
 						wrongTransferLabelNum += 1.0
 						print("query iteration", queryIter, "error transfer label\t", exLabel, "true label", self.m_targetLabel[exId])
 				else:
-					untransferLabelNum += 1.0
 					self.update_confidence_bound(exId)
 					activeLabelNum += 1.0
 					activeLabelFlag = True
@@ -343,16 +304,19 @@ class _ProactiveLearning:
 					if transferLabel == exLabel:
 						correctUntransferLabelNum += 1.0
 						transferFlagList.append(1.0)
-						transferFeatureList.append(self.m_targetNameFeature[exId])
+						featureList4Transfer = []
+						featureList4Transfer.append(transferLabel)
+						featureList4Transfer.extend(self.m_targetNameFeature[exId])
+						# print("featureList4Transfer 2\t", featureList4Transfer)
+						transferFeatureList.append(featureList4Transfer)
 					else:
 						wrongUntransferLabelNum += 1.0
 						transferFlagList.append(0.0)
-						transferFeatureList.append(self.m_targetNameFeature[exId])
+						featureList4Transfer = []
+						featureList4Transfer.append(transferLabel)
+						featureList4Transfer.extend(self.m_targetNameFeature[exId])
+						transferFeatureList.append(featureList4Transfer)
 
-				labeledExList.append(exId)
-				unlabeledExList.remove(exId)
-
-				if activeLabelFlag:
 					auditorPrecision = 0.0
 					if correctTransferLabelNum+wrongTransferLabelNum > 0.0:
 						auditorPrecision = correctTransferLabelNum*1.0/(correctTransferLabelNum+wrongTransferLabelNum)
@@ -367,6 +331,9 @@ class _ProactiveLearning:
 					auditorRecallList.append(auditorRecall)
 					auditorAccList.append(auditorAcc)
 
+				labeledExList.append(exId)
+				unlabeledExList.remove(exId)
+
 				acc = self.get_pred_acc(targetNameFeatureTest, targetLabelTest, targetNameFeatureIter, targetLabelIter)
 				totalAccList[cvIter].append(acc)
 				if activeLabelFlag:
@@ -380,12 +347,12 @@ class _ProactiveLearning:
 			correctUntransferRatio = correctUntransferLabelNum*1.0
 			correctUntransferRatioList.append(correctUntransferRatio)
 
-			correctTransferRatio = realCorrectTransferLabelNum*1.0/transferLabelNum
-			print("transferLabelNum\t", realCorrectTransferLabelNum, "correct transfer ratio\t", correctTransferRatio)
+			correctTransferRatio = correctTransferLabelNum*1.0/transferLabelNum
+			print("transferLabelNum\t", transferLabelNum, "correct transfer ratio\t", correctTransferRatio)
 			correctTransferRatioList.append(correctTransferRatio)
 			totalTransferNumList.append(transferLabelNum)
 
-			cvIter += 1     
+			cvIter += 1      
 		
 		print("transfer num\t", np.mean(totalTransferNumList), np.sqrt(np.var(totalTransferNumList)))
 		print("correct ratio\t", np.mean(correctTransferRatioList), np.sqrt(np.var(correctTransferRatioList)))

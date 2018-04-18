@@ -29,7 +29,7 @@ from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "proactive_margin_LCB05_warm20"
+modelName = "proactive_LCB_LCB05_jointly_warm20"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
@@ -71,12 +71,19 @@ class _ProactiveLearning:
 		self.m_alpha = 1
 
 		self.m_lambda = 0.01
-		self.m_A = 0
-		self.m_AInv = 0
-		self.m_cbRate = 0.05
+		self.m_judgeA = 0
+		self.m_judgeAInv = 0
+		self.m_judgeCbRate = 0.05
 
 		self.m_judgeClassifier = 0
 		self.m_clf = 0
+
+		self.m_selectA = 0
+		self.m_selectAInv = 0
+		self.m_selectCbRate = 0.02
+		self.m_selfCbRate = 0.01
+		##select ratio
+		self.m_jointRatio = 0.8
 
 	def select_example(self, unlabeled_list):
 
@@ -85,15 +92,20 @@ class _ProactiveLearning:
 		for unlabeledIdIndex in range(unlabeledIdNum):
 			unlabeledId = unlabeled_list[unlabeledIdIndex]
 			# print("unlabeledId\t", unlabeledId)
-			labelPredictProb = self.m_clf.predict_proba(self.m_targetNameFeature[unlabeledId].reshape(1, -1))[0]
+			selectCB = self.get_select_confidence_bound(unlabeledId)
+			judgeCB = self.get_judge_confidence_bound(unlabeledId)
+			idScore = self.m_jointRatio*selectCB+(1-self.m_jointRatio)*judgeCB
+			# labelPredictProb = self.get_cb_prob(self.m_clf.coef_, self.m_targetNameFeature[unlabeledId].reshape(1, -1), cb)
+
+			# labelPredictProb = self.m_clf.predict_proba(self.m_targetNameFeature[unlabeledId].reshape(1, -1))[0]
 			# print(labelPredictProb)
 			# sortedLabelPredictProb = sorted(labelPredictProb)
-			sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
+			# sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
 			# print(sortedLabelPredictProb)
-			maxLabelPredictProb = sortedLabelPredictProb[0]
-			subMaxLabelPredictProb = sortedLabelPredictProb[1]
+			# maxLabelPredictProb = sortedLabelPredictProb[0]
+			# subMaxLabelPredictProb = sortedLabelPredictProb[1]
 			# print("maxLabelPredictProb\t", maxLabelPredictProb)
-			idScore = 1-(maxLabelPredictProb-subMaxLabelPredictProb)
+			# idScore = 1-(maxLabelPredictProb-subMaxLabelPredictProb)
 			# print("idScore\t", idScore)
 			unlabeledIdScoreMap[unlabeledId] = idScore
 
@@ -120,25 +132,33 @@ class _ProactiveLearning:
 		self.m_randomForest.fit(self.m_sourceDataFeature, self.m_sourceLabel)
 
 	def init_confidence_bound(self, featureDim):
-		self.m_A = self.m_lambda*np.identity(featureDim)
-		self.m_AInv = np.linalg.inv(self.m_A)
+		self.m_selectA = self.m_lambda*np.identity(featureDim)
+		self.m_selectAInv = np.linalg.inv(self.m_selectA)
 
-	def update_confidence_bound(self, exId):
-		self.m_A += np.outer(self.m_targetNameFeature[exId], self.m_targetNameFeature[exId])
-		self.m_AInv = np.linalg.inv(self.m_A)
+		self.m_judgeA = self.m_lambda*np.identity(featureDim)
+		self.m_judgeAInv = np.linalg.inv(self.m_judgeA)
 
-	def get_confidence_bound(self, exId):
-		CB = np.sqrt(np.dot(np.dot(self.m_targetNameFeature[exId], self.m_AInv), self.m_targetNameFeature[exId]))
+	def update_select_confidence_bound(self, exId):
+		self.m_selectA += np.outer(self.m_targetNameFeature[exId], self.m_targetNameFeature[exId])
+		self.m_selectAInv = np.linalg.inv(self.m_selectA)
+
+	def update_judge_confidence_bound(self, exId):
+		self.m_judgeA += np.outer(self.m_targetNameFeature[exId], self.m_targetNameFeature[exId])
+		self.m_judgeAInv = np.linalg.inv(self.m_judgeA)
+
+	def get_select_confidence_bound(self, exId):
+		CB = np.sqrt(np.dot(np.dot(self.m_targetNameFeature[exId], self.m_selectAInv), self.m_targetNameFeature[exId]))
 
 		return CB
 
-	def get_judgeClassifier_prob(self, judgeParam, feature, CB):
+	def get_judge_confidence_bound(self, exId):
+		CB = np.sqrt(np.dot(np.dot(self.m_targetNameFeature[exId], self.m_judgeAInv), self.m_targetNameFeature[exId]))
+
+		return CB
+
+	def get_cb_prob(self, judgeParam, feature, CB):
 		rawProb = np.dot(judgeParam, np.transpose(feature))
-		judgeProbThreshold = 0.5
-		if sigmoid(rawProb-self.m_cbRate*CB) > judgeProbThreshold:
-			return True
-		else:
-			return False
+		return sigmoid(rawProb-self.m_judgeCbRate*CB) 
 
 	def get_transfer_flag(self, transferFeatureList, transferFlagList, exId):
 		predLabel = self.m_randomForest.predict(self.m_targetDataFeature[exId].reshape(1, -1))[0]
@@ -148,11 +168,11 @@ class _ProactiveLearning:
 		else:
 			return False, predLabel
 
-		CB = self.get_confidence_bound(exId)
+		CB = self.get_judge_confidence_bound(exId)
 
-		transferFlag = self.get_judgeClassifier_prob(self.m_judgeClassifier.coef_, self.m_targetNameFeature[exId].reshape(1, -1), CB)
-
-		if transferFlag:
+		judgeProbThreshold = 0.5
+		cbProb = self.get_cb_prob(self.m_judgeClassifier.coef_, self.m_targetNameFeature[exId].reshape(1, -1), CB)
+		if cbProb > judgeProbThreshold:
 			return True, predLabel
 		else:
 			return False, predLabel
@@ -262,6 +282,8 @@ class _ProactiveLearning:
 				exId = self.select_example(unlabeledExList)
 				exLabel = self.m_targetLabel[exId]
 
+				self.update_select_confidence_bound(exId)
+
 				transferLabelFlag, transferLabel = self.get_transfer_flag(transferFeatureList, transferFlagList, exId)
 
 				if transferLabel == exLabel:
@@ -281,7 +303,7 @@ class _ProactiveLearning:
 				
 				auditorAcc = (correctTransferLabelNum+wrongUntransferLabelNum)*1.0/(correctTransferLabelNum+wrongUntransferLabelNum+correctUntransferLabelNum+wrongTransferLabelNum)
 
-				self.update_confidence_bound(exId)
+				self.update_judge_confidence_bound(exId)
 				activeLabelNum += 1.0
 				activeLabelFlag = True
 
@@ -307,6 +329,8 @@ class _ProactiveLearning:
 				self.m_clf.fit(targetNameFeatureIter, targetLabelIter) 
 
 				exId = self.select_example(unlabeledExList) 
+				self.update_select_confidence_bound(exId)
+
 				# print(idx)
 				activeLabelFlag = False
 				transferLabelFlag, transferLabel = self.get_transfer_flag(transferFeatureList, transferFlagList, exId)
@@ -330,7 +354,7 @@ class _ProactiveLearning:
 						print("query iteration", queryIter, "error transfer label\t", exLabel, "true label", self.m_targetLabel[exId])
 				else:
 					untransferLabelNum += 1.0
-					self.update_confidence_bound(exId)
+					self.update_judge_confidence_bound(exId)
 					activeLabelNum += 1.0
 					activeLabelFlag = True
 
@@ -381,7 +405,7 @@ class _ProactiveLearning:
 			correctUntransferRatioList.append(correctUntransferRatio)
 
 			correctTransferRatio = realCorrectTransferLabelNum*1.0/transferLabelNum
-			print("transferLabelNum\t", realCorrectTransferLabelNum, "correct transfer ratio\t", correctTransferRatio)
+			print("transferLabelNum\t", transferLabelNum, "correct transfer ratio\t", correctTransferRatio)
 			correctTransferRatioList.append(correctTransferRatio)
 			totalTransferNumList.append(transferLabelNum)
 
@@ -483,4 +507,3 @@ if __name__ == "__main__":
 	al = _ProactiveLearning(fold, rounds, source_fd, sourceLabel, target_fd, targetLabel, target_fn)
 
 	al.run_CV()
-
