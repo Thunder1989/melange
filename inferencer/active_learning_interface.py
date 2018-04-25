@@ -52,6 +52,10 @@ class active_learning_interface(Inferencer):
         )
 
 
+    def example_set():
+        #TODO: get a set of example IDs that the user can provide label for, i.e, the set of examples to run AL
+
+
     def select_example():
 
         idx, c_idx = self.learner.select_example()
@@ -59,9 +63,8 @@ class active_learning_interface(Inferencer):
         return idx
 
 
-    def update_model():
-
-        pass
+    def get_label(idx):
+        #TODO: get the label for the example[idx] from human
 
 
     def predict(self, target_srcids):
