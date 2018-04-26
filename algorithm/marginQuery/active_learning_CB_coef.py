@@ -1,5 +1,5 @@
 """
-active learning with random initialization and random
+active learning with random initialization and least confidence query strategy
 """
 
 import numpy as np
@@ -24,19 +24,19 @@ from sklearn.ensemble import RandomForestClassifier as RFC
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression as LR
 from sklearn.metrics import accuracy_score
-from sklearn.metrics import precision_score
-from sklearn.metrics import recall_score
 from sklearn.metrics import confusion_matrix as CM
 from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "al_random"
+modelName = "al_cb_coef_cbrate"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
 modelVersion = modelName+"_"+timeStamp
-# random.seed(3)
+
+def sigmoid(x):
+  	  return (1 / (1 + np.exp(-x)))
 
 def get_name_features(names):
 
@@ -65,25 +65,80 @@ class active_learning:
 
 		self.ex_id = dd(list)
 
+		self.m_lambda = 0.01
+		self.m_selectA = 0
+		self.m_selectAInv = 0
+		# self.m_selectCbRate = 0.002
+		self.m_selectCbRate = 1.0
+
+		self.clf = 0
+
 	def select_example(self, unlabeled_list):
-
-		return random.sample(unlabeled_list, 1)[0]
-
 		unlabeledIdScoreMap = {} ###unlabeledId:idscore
 		unlabeledIdNum = len(unlabeled_list)
+		# print("---------------")
 		for unlabeledIdIndex in range(unlabeledIdNum):
 			unlabeledId = unlabeled_list[unlabeledIdIndex]
 			# print("unlabeledId\t", unlabeledId)
-			labelPredictProb = self.clf.predict_proba(self.fn[unlabeledId].reshape(1, -1))
-			maxLabelPredictProb = np.max(labelPredictProb)
-			# print("maxLabelPredictProb\t", maxLabelPredictProb)
-			idScore = 1-maxLabelPredictProb
-			# print("idScore\t", idScore)
+			labelPredictProb = self.clf.predict_proba(self.fn[unlabeledId].reshape(1, -1))[0]
+
+			labelIndexMap = {} ##labelIndex: labelProb
+			labelNum = len(labelPredictProb)
+			for labelIndex in range(labelNum):
+				labelIndexMap.setdefault(labelIndex, labelPredictProb[labelIndex])
+
+			sortedLabelIndexList = sorted(labelIndexMap, key=labelIndexMap.__getitem__, reverse=True)
+			# print("labelPredictProb\t", labelPredictProb)
+			# sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
+			# # print(sortedLabelPredictProb)
+			# maxLabelPredictProb = sortedLabelPredictProb[0]
+			# subMaxLabelPredictProb = sortedLabelPredictProb[1]
+			maxLabelIndex = sortedLabelIndexList[0]
+			subMaxLabelIndex = sortedLabelIndexList[1]
+
+			coefDiff = 0
+			if labelNum == 2:
+				# coefDiff = np.dot(self.clf.coef_, self.fn[unlabeledId])
+				print("error", debug)
+			else:
+				maxCoef = self.clf.coef_[maxLabelIndex]
+				subMaxCoef = self.clf.coef_[subMaxLabelIndex]
+				coefDiff = np.dot(maxCoef, self.fn[unlabeledId])-np.dot(subMaxCoef, self.fn[unlabeledId])
+
+			# print(maxLabelIndex, subMaxLabelIndex)
+		
+			# marginProb = maxLabelPredictProb-subMaxLabelPredictProb
+
+			selectCB = self.get_select_confidence_bound(unlabeledId)
+
+			# print("selectCB", self.m_selectCbRate*selectCB)
+			# LCB = maxLabelPredictProb+self.m_selectCbRate*selectCB
+				
+			LCB = coefDiff-2*self.m_selectCbRate*selectCB
+
+			idScore = 1-LCB
+			# print("idScore", idScore)
+
 			unlabeledIdScoreMap[unlabeledId] = idScore
 
+		# sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
 		sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
 
 		return sortedUnlabeledIdList[0]
+
+	def init_confidence_bound(self, featureDim):
+		self.m_selectA = self.m_lambda*np.identity(featureDim)
+		self.m_selectAInv = np.linalg.inv(self.m_selectA)
+
+	def update_select_confidence_bound(self, exId):
+		# print("updating select cb", exId)
+		self.m_selectA += np.outer(self.fn[exId], self.fn[exId])
+		self.m_selectAInv = np.linalg.inv(self.m_selectA)
+
+	def get_select_confidence_bound(self, exId):
+		CB = np.sqrt(np.dot(np.dot(self.fn[exId], self.m_selectAInv), self.fn[exId]))
+
+		return CB
 
 	def get_pred_acc(self, fn_test, label_test, labeled_list):
 
@@ -97,37 +152,6 @@ class active_learning:
 		# print("acc\t", acc)
 		# print debug
 		return acc
-
-	def plot_confusion_matrix(self, label_test, fn_test):
-
-		fn_preds = self.clf.predict(fn_test)
-		acc = accuracy_score(label_test, fn_preds)
-
-		cm_ = CM(label_test, fn_preds)
-		cm = normalize(cm_.astype(np.float), axis=1, norm='l1')
-
-		fig = pl.figure()
-		ax = fig.add_subplot(111)
-		cax = ax.matshow(cm)
-		fig.colorbar(cax)
-		for x in xrange(len(cm)):
-			for y in xrange(len(cm)):
-				ax.annotate(str("%.3f(%d)"%(cm[x][y], cm_[x][y])), xy=(y,x),
-							horizontalalignment='center',
-							verticalalignment='center',
-							fontsize=10)
-		cm_cls =np.unique(np.hstack((label_test,fn_preds)))
-
-		cls = []
-		for c in cm_cls:
-			cls.append(mapping[c])
-		pl.yticks(range(len(cls)), cls)
-		pl.ylabel('True label')
-		pl.xticks(range(len(cls)), cls)
-		pl.xlabel('Predicted label')
-		pl.title('Mn Confusion matrix (%.3f)'%acc)
-
-		pl.show()
 
 	def run_CV(self):
 
@@ -153,13 +177,11 @@ class active_learning:
 		foldInstanceList.append(foldIndexInstanceList)
 		# kf = KFold(totalInstanceNum, n_folds=self.fold, shuffle=True)
 		cvIter = 0
-		# random.seed(3)
 		totalAccList = [[] for i in range(10)]
 		for foldIndex in range(foldNum):
-			
 			# self.clf = LinearSVC(random_state=3)
 
-			self.clf = LR(random_state=3)
+			self.clf = LR(random_state=3, fit_intercept=False)
 
 			train = []
 			for preFoldIndex in range(foldIndex):
@@ -175,15 +197,18 @@ class active_learning:
 			label_test = self.label[test]
 
 			fn_train = self.fn[train]
+
+			featureDim = len(fn_train[0])
+			self.init_confidence_bound(featureDim)
 			
 			initExList = []
-			random.seed(3)
+			random.seed(5)
 			initExList = random.sample(train, 3)
 			print("initExList\t", initExList)
 			fn_init = self.fn[initExList]
 			label_init = self.label[initExList]
 
-			queryIter = 0
+			queryIter = 3
 			labeledExList = []
 			unlabeledExList = []
 			###labeled index
@@ -200,7 +225,9 @@ class active_learning:
 				self.clf.fit(fn_train_iter, label_train_iter) 
 
 				idx = self.select_example(unlabeledExList) 
-				# print(idx)
+				print(queryIter, "idx", idx, self.label[idx])
+				self.update_select_confidence_bound(idx)
+
 				labeledExList.append(idx)
 				unlabeledExList.remove(idx)
 
@@ -209,7 +236,7 @@ class active_learning:
 				queryIter += 1
 
 			cvIter += 1      
-		
+			
 		totalACCFile = modelVersion+".txt"
 		f = open(totalACCFile, "w")
 		for i in range(10):

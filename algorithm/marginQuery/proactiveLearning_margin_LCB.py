@@ -29,7 +29,7 @@ from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "proactive_margin_LCB05_CbRate0002"
+modelName = "proactive_margin_LCB05_CbRate005_random5"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
@@ -73,7 +73,7 @@ class _ProactiveLearning:
 		self.m_lambda = 0.01
 		self.m_A = 0
 		self.m_AInv = 0
-		self.m_cbRate = 0.002
+		self.m_cbRate = 0.05 ##0.05
 
 		self.m_judgeClassifier = 0
 		self.m_clf = 0
@@ -225,7 +225,7 @@ class _ProactiveLearning:
 			sourceUniqueClass = np.unique(self.m_sourceLabel)
 
 			initExList = []
-			random.seed(3)
+			random.seed(5)
 			initExList = random.sample(train, 3)
 			print("initExList\t", initExList)
 

@@ -29,7 +29,7 @@ from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "proactive_margin_LCB05_LabelFeature"
+modelName = "proactive_margin_oracleAuditor"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
@@ -73,7 +73,7 @@ class _ProactiveLearning:
 		self.m_lambda = 0.01
 		self.m_A = 0
 		self.m_AInv = 0
-		self.m_cbRate = 0.05
+		self.m_cbRate = 0.002 ##0.05
 
 		self.m_judgeClassifier = 0
 		self.m_clf = 0
@@ -132,34 +132,53 @@ class _ProactiveLearning:
 
 		return CB
 
-	def get_judgeClassifier_prob(self, judgeParam, feature, CB):
-		rawProb = np.dot(judgeParam, np.transpose(feature))
-		judgeProbThreshold = 0.5
-		if sigmoid(rawProb-self.m_cbRate*CB) > judgeProbThreshold:
-			return True
-		else:
-			return False
+	# def get_judgeClassifier_prob(self, judgeParam, feature, CB):
+	# 	rawProb = np.dot(judgeParam, np.transpose(feature))
+	# 	judgeProbThreshold = 0.5
 
-	def get_transfer_flag(self, targetClassIndexMap, transferFeatureList, transferFlagList, exId):
+	# 	cbProb = sigmoid(rawProb-self.m_cbRate*CB)
+	# 	# print("cbProb\t", cbProb)
+	# 	if cbProb > judgeProbThreshold:
+	# 		return True
+	# 	else:
+	# 		return False
+
+	def trainJudgeClassifier(self):
+		predTargetLabels = self.m_randomForest.predict(self.m_targetDataFeature)
+		trueLabels = self.m_targetLabel
+
+		exampleNum = len(trueLabels)
+		print("exampleNum\t", exampleNum)
+
+		judgeFeatureList = []
+		judgeLabelList = []
+
+		for exampleIndex in range(exampleNum):
+			judgeFeatureList.append(self.m_targetNameFeature[exampleIndex])
+			if trueLabels[exampleIndex] == predTargetLabels[exampleIndex]:
+				judgeLabelList.append(1.0)
+			else:
+				judgeLabelList.append(0.0)
+
+		self.m_judgeClassifier.fit(judgeFeatureList, judgeLabelList)
+
+	def get_judgeClassifier_prob(self, feature):
+		transferFlag = self.m_judgeClassifier.predict(feature)
+		return transferFlag
+
+	def get_transfer_flag(self, transferFeatureList, transferFlagList, exId):
 		predLabel = self.m_randomForest.predict(self.m_targetDataFeature[exId].reshape(1, -1))[0]
 
-		if len(np.unique(transferFlagList)) > 1:
-			self.m_judgeClassifier.fit(np.array(transferFeatureList), np.array(transferFlagList))
-		else:
-			return False, predLabel
+		# if len(np.unique(transferFlagList)) > 1:
+		# 	self.m_judgeClassifier.fit(np.array(transferFeatureList), np.array(transferFlagList))
+		# else:
+		# 	return False, predLabel
 
-		CB = self.get_confidence_bound(exId)
+		# CB = self.get_confidence_bound(exId)
 
-		# featureList4Transfer = []
-		# featureList4Transfer.append(predLabel)
-		targetClassNum = len(targetClassIndexMap)
-		featureList4Transfer = [0.0 for i in range(targetClassNum)]
-		featureList4Transfer[targetClassIndexMap[predLabel]] = 1.0
+		# transferFlag = self.get_judgeClassifier_prob(self.m_judgeClassifier.coef_, self.m_targetNameFeature[exId].reshape(1, -1), CB)
 
-		featureList4Transfer.extend(self.m_targetNameFeature[exId])
-		# print(featureList4Transfer)
-
-		transferFlag = self.get_judgeClassifier_prob(self.m_judgeClassifier.coef_, featureList4Transfer, CB)
+		transferFlag = self.get_judgeClassifier_prob(self.m_targetNameFeature[exId].reshape(1, -1))
 
 		if transferFlag:
 			return True, predLabel
@@ -203,22 +222,15 @@ class _ProactiveLearning:
 		totalAuditorRecallList = []
 		totalAuditorAccList = []
 
-		sourceUniqueClass = np.unique(self.m_sourceLabel)
-		targetUniqueClass = np.unique(self.m_targetLabel)
+		self.m_judgeClassifier = LR(random_state=3)
 
-		targetClassIndexMap = {} ###classIndex: className
-		for className in targetUniqueClass:
-			classIndex = len(targetClassIndexMap)
-			targetClassIndexMap.setdefault(className, classIndex)
-		targetClassNum = len(targetClassIndexMap)
-		print("targetUniqueClass", targetUniqueClass, targetClassIndexMap)
+		self.trainJudgeClassifier()
 
 		for foldIndex in range(foldNum):
 			
 			# self.clf = LinearSVC(random_state=3)
 
 			self.m_clf = LR(random_state=3)
-			self.m_judgeClassifier = LR(random_state=3)
 
 			train = []
 			for preFoldIndex in range(foldIndex):
@@ -237,6 +249,8 @@ class _ProactiveLearning:
 			targetNameFeatureTest = self.m_targetNameFeature[test]
 			targetLabelTest = self.m_targetLabel[test]
 			targetDataFeatureTest = self.m_targetDataFeature[test]
+
+			sourceUniqueClass = np.unique(self.m_sourceLabel)
 
 			initExList = []
 			random.seed(3)
@@ -259,7 +273,7 @@ class _ProactiveLearning:
 			transferFlagList = []
 
 			featureDim = len(targetNameFeatureTrain[0])
-			self.init_confidence_bound(featureDim)
+			# self.init_confidence_bound(featureDim)
 
 			targetNameFeatureIter = targetNameFeatureInit
 			targetLabelIter = targetLabelInit
@@ -283,7 +297,7 @@ class _ProactiveLearning:
 				exId = self.select_example(unlabeledExList) 
 				# print(idx)
 				activeLabelFlag = False
-				transferLabelFlag, transferLabel = self.get_transfer_flag(targetClassIndexMap, transferFeatureList, transferFlagList, exId)
+				transferLabelFlag, transferLabel = self.get_transfer_flag(transferFeatureList, transferFlagList, exId)
 
 				exLabel = -1
 				if transferLabelFlag:
@@ -303,7 +317,7 @@ class _ProactiveLearning:
 						wrongTransferLabelNum += 1.0
 						print("query iteration", queryIter, "error transfer label\t", exLabel, "true label", self.m_targetLabel[exId])
 				else:
-					self.update_confidence_bound(exId)
+					# self.update_confidence_bound(exId)
 					activeLabelNum += 1.0
 					activeLabelFlag = True
 
@@ -316,20 +330,11 @@ class _ProactiveLearning:
 					if transferLabel == exLabel:
 						correctUntransferLabelNum += 1.0
 						transferFlagList.append(1.0)
-						featureList4Transfer = [0.0 for i in range(targetClassNum)]
-						featureList4Transfer[targetClassIndexMap[transferLabel]] = 1.0
-						# featureList4Transfer.append(transferLabel)
-						featureList4Transfer.extend(self.m_targetNameFeature[exId])
-						# print("featureList4Transfer 2\t", featureList4Transfer)
-						transferFeatureList.append(featureList4Transfer)
+						transferFeatureList.append(self.m_targetNameFeature[exId])
 					else:
 						wrongUntransferLabelNum += 1.0
 						transferFlagList.append(0.0)
-						featureList4Transfer = [0.0 for i in range(targetClassNum)]
-						featureList4Transfer[targetClassIndexMap[transferLabel]] = 1.0
-						# featureList4Transfer.append(transferLabel)
-						featureList4Transfer.extend(self.m_targetNameFeature[exId])
-						transferFeatureList.append(featureList4Transfer)
+						transferFeatureList.append(self.m_targetNameFeature[exId])
 
 					auditorPrecision = 0.0
 					if correctTransferLabelNum+wrongTransferLabelNum > 0.0:
@@ -360,6 +365,7 @@ class _ProactiveLearning:
 
 			correctUntransferRatio = correctUntransferLabelNum*1.0
 			correctUntransferRatioList.append(correctUntransferRatio)
+			print("correctUntransferRatio\t", correctUntransferRatio)
 
 			correctTransferRatio = correctTransferLabelNum*1.0/transferLabelNum
 			print("transferLabelNum\t", transferLabelNum, "correct transfer ratio\t", correctTransferRatio)

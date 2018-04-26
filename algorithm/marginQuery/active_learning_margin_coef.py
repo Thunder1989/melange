@@ -1,5 +1,5 @@
 """
-active learning with random initialization and random
+active learning with random initialization and min margin
 """
 
 import numpy as np
@@ -24,19 +24,21 @@ from sklearn.ensemble import RandomForestClassifier as RFC
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression as LR
 from sklearn.metrics import accuracy_score
-from sklearn.metrics import precision_score
-from sklearn.metrics import recall_score
 from sklearn.metrics import confusion_matrix as CM
 from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "al_random"
+modelName = "al_margin_coef"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
 modelVersion = modelName+"_"+timeStamp
 # random.seed(3)
+
+
+def sigmoid(x):
+  	  return (1 / (1 + np.exp(-x)))
 
 def get_name_features(names):
 
@@ -67,20 +69,59 @@ class active_learning:
 
 	def select_example(self, unlabeled_list):
 
-		return random.sample(unlabeled_list, 1)[0]
-
 		unlabeledIdScoreMap = {} ###unlabeledId:idscore
 		unlabeledIdNum = len(unlabeled_list)
+		# print("unlabeledIdNum\t", unlabeledIdNum)
 		for unlabeledIdIndex in range(unlabeledIdNum):
 			unlabeledId = unlabeled_list[unlabeledIdIndex]
 			# print("unlabeledId\t", unlabeledId)
-			labelPredictProb = self.clf.predict_proba(self.fn[unlabeledId].reshape(1, -1))
-			maxLabelPredictProb = np.max(labelPredictProb)
-			# print("maxLabelPredictProb\t", maxLabelPredictProb)
-			idScore = 1-maxLabelPredictProb
-			# print("idScore\t", idScore)
-			unlabeledIdScoreMap[unlabeledId] = idScore
+			labelPredictProb = self.clf.predict_proba(self.fn[unlabeledId].reshape(1, -1))[0]
+			# print("labelPredictProb", labelPredictProb)
 
+			labelIndexMap = {} ##labelIndex: labelProb
+			labelNum = len(labelPredictProb)
+			for labelIndex in range(labelNum):
+				labelIndexMap.setdefault(labelIndex, labelPredictProb[labelIndex])
+
+			sortedLabelIndexList = sorted(labelIndexMap, key=labelIndexMap.__getitem__, reverse=True)
+			maxLabelIndex = sortedLabelIndexList[0]
+			subMaxLabelIndex = sortedLabelIndexList[1]
+
+			coefDiff = 0
+			if labelNum == 2:
+				coefDiff = np.dot(self.clf.coef_, self.fn[unlabeledId])
+				# idScore = np.abs(sigmoid(coefDiff)-1+sigmoid(coefDiff))
+				idScore = coefDiff
+				# print("idScore", idScore)
+				# print("diff", np.abs(labelPredictProb[0]-labelPredictProb[1]))
+			else:
+				maxCoef = self.clf.coef_[maxLabelIndex]
+				subMaxCoef = self.clf.coef_[subMaxLabelIndex]
+				coefDiff = np.dot(maxCoef, self.fn[unlabeledId])-np.dot(subMaxCoef, self.fn[unlabeledId])
+				# idScore = (sigmoid(np.dot(maxCoef, self.fn[unlabeledId]))-sigmoid(np.dot(subMaxCoef, self.fn[unlabeledId])))/np.sum(sigmoid(np.dot(self.clf.coef_, self.fn[unlabeledId])))
+				idScore = coefDiff
+				# idScore = (sigmoid(np.dot(maxCoef, self.fn[unlabeledId]))-sigmoid(np.dot(subMaxCoef, self.fn[unlabeledId])))
+			idScore = 1-idScore
+
+				# print("idScore", idScore)
+
+				# probList = sigmoid(np.dot(self.clf.coef_, self.fn[unlabeledId]))/np.sum(sigmoid(np.dot(self.clf.coef_, self.fn[unlabeledId])))
+				# print("probList", probList)
+
+
+			# print(labelPredictProb)
+			# sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
+			# print(sortedLabelPredictProb)
+			# maxLabelPredictProb = sortedLabelPredictProb[0]
+			# subMaxLabelPredictProb = sortedLabelPredictProb[1]
+			# print("diff", maxLabelPredictProb-subMaxLabelPredictProb)
+			# print("maxLabelPredictProb\t", maxLabelPredictProb)
+			# idScore = 1-(maxLabelPredictProb-subMaxLabelPredictProb)
+			# idScore = coefDiff
+			# print("idScore\t", idScore)
+
+			unlabeledIdScoreMap[unlabeledId] = idScore
+		# print("=======")
 		sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
 
 		return sortedUnlabeledIdList[0]
@@ -98,37 +139,6 @@ class active_learning:
 		# print debug
 		return acc
 
-	def plot_confusion_matrix(self, label_test, fn_test):
-
-		fn_preds = self.clf.predict(fn_test)
-		acc = accuracy_score(label_test, fn_preds)
-
-		cm_ = CM(label_test, fn_preds)
-		cm = normalize(cm_.astype(np.float), axis=1, norm='l1')
-
-		fig = pl.figure()
-		ax = fig.add_subplot(111)
-		cax = ax.matshow(cm)
-		fig.colorbar(cax)
-		for x in xrange(len(cm)):
-			for y in xrange(len(cm)):
-				ax.annotate(str("%.3f(%d)"%(cm[x][y], cm_[x][y])), xy=(y,x),
-							horizontalalignment='center',
-							verticalalignment='center',
-							fontsize=10)
-		cm_cls =np.unique(np.hstack((label_test,fn_preds)))
-
-		cls = []
-		for c in cm_cls:
-			cls.append(mapping[c])
-		pl.yticks(range(len(cls)), cls)
-		pl.ylabel('True label')
-		pl.xticks(range(len(cls)), cls)
-		pl.xlabel('Predicted label')
-		pl.title('Mn Confusion matrix (%.3f)'%acc)
-
-		pl.show()
-
 	def run_CV(self):
 
 		cvIter = 0
@@ -136,6 +146,9 @@ class active_learning:
 		totalInstanceNum = len(self.label)
 		print("totalInstanceNum\t", totalInstanceNum)
 		indexList = [i for i in range(totalInstanceNum)]
+
+		print("featureNum", len(self.fn[0]))
+		print("non zero feature num", sum(self.fn[0]))
 
 		totalTransferNumList = []
 		np.random.seed(3)
@@ -159,7 +172,7 @@ class active_learning:
 			
 			# self.clf = LinearSVC(random_state=3)
 
-			self.clf = LR(random_state=3)
+			self.clf = LR(random_state=3, fit_intercept=False)
 
 			train = []
 			for preFoldIndex in range(foldIndex):
@@ -175,15 +188,15 @@ class active_learning:
 			label_test = self.label[test]
 
 			fn_train = self.fn[train]
-			
+
 			initExList = []
 			random.seed(3)
 			initExList = random.sample(train, 3)
-			print("initExList\t", initExList)
 			fn_init = self.fn[initExList]
 			label_init = self.label[initExList]
+			print("initExList\t", initExList, label_init)
 
-			queryIter = 0
+			queryIter = 3
 			labeledExList = []
 			unlabeledExList = []
 			###labeled index
@@ -200,7 +213,7 @@ class active_learning:
 				self.clf.fit(fn_train_iter, label_train_iter) 
 
 				idx = self.select_example(unlabeledExList) 
-				# print(idx)
+				print(queryIter, "idx", idx, self.label[idx])
 				labeledExList.append(idx)
 				unlabeledExList.remove(idx)
 
@@ -225,6 +238,7 @@ if __name__ == "__main__":
 	raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('../../data/rice_pt_sdh').readlines()]
 	tmp = np.genfromtxt('../../data/rice_hour_sdh', delimiter=',')
 	label = tmp[:,-1]
+	print("number of types", len(set(label)))
 	print 'class count of true labels of all ex:\n', ct(label)
 
 	mapping = {1:'co2',2:'humidity',4:'rmt',5:'status',6:'stpt',7:'flow',8:'HW sup',9:'HW ret',10:'CW sup',11:'CW ret',12:'SAT',13:'RAT',17:'MAT',18:'C enter',19:'C leave',21:'occu'}

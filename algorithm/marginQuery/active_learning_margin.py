@@ -36,6 +36,10 @@ timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(time
 modelVersion = modelName+"_"+timeStamp
 # random.seed(3)
 
+
+def sigmoid(x):
+  	  return (1 / (1 + np.exp(-x)))
+
 def get_name_features(names):
 
 		name = []
@@ -67,22 +71,56 @@ class active_learning:
 
 		unlabeledIdScoreMap = {} ###unlabeledId:idscore
 		unlabeledIdNum = len(unlabeled_list)
-		print("unlabeledIdNum\t", unlabeledIdNum)
+		# print("unlabeledIdNum\t", unlabeledIdNum)
 		for unlabeledIdIndex in range(unlabeledIdNum):
 			unlabeledId = unlabeled_list[unlabeledIdIndex]
 			# print("unlabeledId\t", unlabeledId)
 			labelPredictProb = self.clf.predict_proba(self.fn[unlabeledId].reshape(1, -1))[0]
-			# print(labelPredictProb)
-			# sortedLabelPredictProb = sorted(labelPredictProb)
-			sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
-			# print(sortedLabelPredictProb)
-			maxLabelPredictProb = sortedLabelPredictProb[0]
-			subMaxLabelPredictProb = sortedLabelPredictProb[1]
-			# print("maxLabelPredictProb\t", maxLabelPredictProb)
-			idScore = 1-(maxLabelPredictProb-subMaxLabelPredictProb)
-			# print("idScore\t", idScore)
-			unlabeledIdScoreMap[unlabeledId] = idScore
+			# print("labelPredictProb", labelPredictProb)
 
+			labelIndexMap = {} ##labelIndex: labelProb
+			labelNum = len(labelPredictProb)
+			for labelIndex in range(labelNum):
+				labelIndexMap.setdefault(labelIndex, labelPredictProb[labelIndex])
+
+			sortedLabelIndexList = sorted(labelIndexMap, key=labelIndexMap.__getitem__, reverse=True)
+			maxLabelIndex = sortedLabelIndexList[0]
+			subMaxLabelIndex = sortedLabelIndexList[1]
+
+			coefDiff = 0
+			if labelNum == 2:
+				coefDiff = np.dot(self.clf.coef_, self.fn[unlabeledId])
+				idScore = np.abs(sigmoid(coefDiff)-1+sigmoid(coefDiff))
+
+				# print("idScore", idScore)
+				# print("diff", np.abs(labelPredictProb[0]-labelPredictProb[1]))
+			else:
+				maxCoef = self.clf.coef_[maxLabelIndex]
+				subMaxCoef = self.clf.coef_[subMaxLabelIndex]
+				# coefDiff = np.dot(maxCoef, self.fn[unlabeledId])-np.dot(subMaxCoef, self.fn[unlabeledId])
+				# idScore = (sigmoid(np.dot(maxCoef, self.fn[unlabeledId]))-sigmoid(np.dot(subMaxCoef, self.fn[unlabeledId])))/np.sum(sigmoid(np.dot(self.clf.coef_, self.fn[unlabeledId])))
+				idScore = (sigmoid(np.dot(maxCoef, self.fn[unlabeledId]))-sigmoid(np.dot(subMaxCoef, self.fn[unlabeledId])))
+			idScore = 1-idScore
+
+				# print("idScore", idScore)
+
+				# probList = sigmoid(np.dot(self.clf.coef_, self.fn[unlabeledId]))/np.sum(sigmoid(np.dot(self.clf.coef_, self.fn[unlabeledId])))
+				# print("probList", probList)
+
+
+			# print(labelPredictProb)
+			# sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
+			# print(sortedLabelPredictProb)
+			# maxLabelPredictProb = sortedLabelPredictProb[0]
+			# subMaxLabelPredictProb = sortedLabelPredictProb[1]
+			# print("diff", maxLabelPredictProb-subMaxLabelPredictProb)
+			# print("maxLabelPredictProb\t", maxLabelPredictProb)
+			# idScore = 1-(maxLabelPredictProb-subMaxLabelPredictProb)
+			# idScore = coefDiff
+			# print("idScore\t", idScore)
+
+			unlabeledIdScoreMap[unlabeledId] = idScore
+		# print("=======")
 		sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
 
 		return sortedUnlabeledIdList[0]
@@ -108,6 +146,9 @@ class active_learning:
 		print("totalInstanceNum\t", totalInstanceNum)
 		indexList = [i for i in range(totalInstanceNum)]
 
+		print("featureNum", len(self.fn[0]))
+		print("non zero feature num", sum(self.fn[0]))
+
 		totalTransferNumList = []
 		np.random.seed(3)
 		np.random.shuffle(indexList)
@@ -130,7 +171,7 @@ class active_learning:
 			
 			# self.clf = LinearSVC(random_state=3)
 
-			self.clf = LR(random_state=3)
+			self.clf = LR(random_state=3, fit_intercept=False)
 
 			train = []
 			for preFoldIndex in range(foldIndex):
@@ -146,13 +187,13 @@ class active_learning:
 			label_test = self.label[test]
 
 			fn_train = self.fn[train]
-			
+
 			initExList = []
-			random.seed(3)
+			random.seed(5)
 			initExList = random.sample(train, 3)
-			print("initExList\t", initExList)
 			fn_init = self.fn[initExList]
 			label_init = self.label[initExList]
+			print("initExList\t", initExList, label_init)
 
 			queryIter = 3
 			labeledExList = []
@@ -171,7 +212,7 @@ class active_learning:
 				self.clf.fit(fn_train_iter, label_train_iter) 
 
 				idx = self.select_example(unlabeledExList) 
-				# print(idx)
+				print(queryIter, "idx", idx, self.label[idx])
 				labeledExList.append(idx)
 				unlabeledExList.remove(idx)
 
@@ -196,6 +237,7 @@ if __name__ == "__main__":
 	raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('../../data/rice_pt_sdh').readlines()]
 	tmp = np.genfromtxt('../../data/rice_hour_sdh', delimiter=',')
 	label = tmp[:,-1]
+	print("number of types", len(set(label)))
 	print 'class count of true labels of all ex:\n', ct(label)
 
 	mapping = {1:'co2',2:'humidity',4:'rmt',5:'status',6:'stpt',7:'flow',8:'HW sup',9:'HW ret',10:'CW sup',11:'CW ret',12:'SAT',13:'RAT',17:'MAT',18:'C enter',19:'C leave',21:'occu'}

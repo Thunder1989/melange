@@ -35,6 +35,9 @@ timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(time
 
 modelVersion = modelName+"_"+timeStamp
 
+def sigmoid(x):
+  	  return (1 / (1 + np.exp(-x)))
+
 def get_name_features(names):
 
 		name = []
@@ -75,18 +78,47 @@ class active_learning:
 		for unlabeledIdIndex in range(unlabeledIdNum):
 			unlabeledId = unlabeled_list[unlabeledIdIndex]
 			# print("unlabeledId\t", unlabeledId)
-			labelPredictProb = self.clf.predict_proba(self.fn[unlabeledId].reshape(1, -1))
+			labelPredictProb = self.clf.predict_proba(self.fn[unlabeledId].reshape(1, -1))[0]
+
+			labelIndexMap = {} ##labelIndex: labelProb
+			labelNum = len(labelPredictProb)
+			for labelIndex in range(labelNum):
+				labelIndexMap.setdefault(labelIndex, labelPredictProb[labelIndex])
+
+			sortedLabelIndexList = sorted(labelIndexMap, key=labelIndexMap.__getitem__, reverse=True)
 			# print("labelPredictProb\t", labelPredictProb)
-			maxLabelPredictProb = np.max(labelPredictProb)
+			# sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
+			# # print(sortedLabelPredictProb)
+			# maxLabelPredictProb = sortedLabelPredictProb[0]
+			# subMaxLabelPredictProb = sortedLabelPredictProb[1]
+			maxLabelIndex = sortedLabelIndexList[0]
+			subMaxLabelIndex = sortedLabelIndexList[1]
+
+			coefDiff = 0
+			if labelNum == 2:
+				coefDiff = np.dot(self.clf.coef_, self.fn[unlabeledId])
+			else:
+				maxCoef = self.clf.coef_[maxLabelIndex]
+				subMaxCoef = self.clf.coef_[subMaxLabelIndex]
+				coefDiff = np.dot(maxCoef, self.fn[unlabeledId])-np.dot(subMaxCoef, self.fn[unlabeledId])
+
+			# print(maxLabelIndex, subMaxLabelIndex)
+		
+			# marginProb = maxLabelPredictProb-subMaxLabelPredictProb
+
 			selectCB = self.get_select_confidence_bound(unlabeledId)
+
 			# print("selectCB", self.m_selectCbRate*selectCB)
-			LCB = maxLabelPredictProb+self.m_selectCbRate*selectCB
+			# LCB = maxLabelPredictProb+self.m_selectCbRate*selectCB
+				
+			LCB = sigmoid(coefDiff) -2*selectCB
+
 			idScore = LCB
 
 			unlabeledIdScoreMap[unlabeledId] = idScore
 
 		# sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
-		sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__)
+		sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
 
 		return sortedUnlabeledIdList[0]
 
@@ -145,7 +177,7 @@ class active_learning:
 		for foldIndex in range(foldNum):
 			# self.clf = LinearSVC(random_state=3)
 
-			self.clf = LR(random_state=3)
+			self.clf = LR(random_state=3, fit_intercept=False)
 
 			train = []
 			for preFoldIndex in range(foldIndex):
@@ -166,7 +198,7 @@ class active_learning:
 			self.init_confidence_bound(featureDim)
 			
 			initExList = []
-			random.seed(3)
+			random.seed(5)
 			initExList = random.sample(train, 3)
 			print("initExList\t", initExList)
 			fn_init = self.fn[initExList]
@@ -189,6 +221,7 @@ class active_learning:
 				self.clf.fit(fn_train_iter, label_train_iter) 
 
 				idx = self.select_example(unlabeledExList) 
+				print(queryIter, "idx", idx, self.label[idx])
 				self.update_select_confidence_bound(idx)
 
 				labeledExList.append(idx)
