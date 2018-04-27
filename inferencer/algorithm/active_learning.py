@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
 import math
 import random
 import re
@@ -47,10 +48,21 @@ class active_learning():
 
         self.tao = 0
         self.alpha_ = 1
+        self.p_idx = []
+        self.p_label = []
+        self.p_dist = dd()
 
         self.clf = LinearSVC()
         self.ex_id = dd(list)
+        self.new_ex_id = 0
+        self.cluster_id = 0
         self.labeled_set = []
+
+
+    def update_model(self):
+        self.update_tao()
+        self.update_pseudo_set()
+
 
     def update_tao(self):
 
@@ -69,45 +81,43 @@ class active_learning():
             self.tao = self.tao
 
 
-    def update_pseudo_set(self, new_ex_id, cluster_id, p_idx, p_label, p_dist):
+    def update_pseudo_set(self):
 
         tmp = []
         idx_tmp=[]
         label_tmp=[]
 
         #re-visit exs removed on previous itr with the new tao
-        for i,j in zip(p_idx,p_label):
+        for i,j in zip(self.p_idx,self.p_label):
 
-            if p_dist[i] < self.tao:
+            if self.p_dist[i] < self.tao:
                 idx_tmp.append(i)
                 label_tmp.append(j)
             else:
-                p_dist.pop(i)
+                self.p_dist.pop(i)
                 tmp.append(i)
 
-        p_idx = idx_tmp
-        p_label = label_tmp
+        self.p_idx = idx_tmp
+        self.p_label = label_tmp
 
         #added exs to pseudo set
-        for ex in self.ex_id[cluster_id]:
+        for ex in self.ex_id[self.cluster_id]:
 
-            if ex == new_ex_id:
+            if ex == self.new_ex_id:
                 continue
-            d = np.linalg.norm(self.fn[ex]-self.fn[new_ex_id])
+            d = np.linalg.norm(self.fn[ex]-self.fn[self.new_ex_id])
 
             if d < self.tao:
-                p_dist[ex] = d
-                p_idx.append(ex)
-                p_label.append(self.label[new_ex_id])
+                self.p_dist[ex] = d
+                self.p_idx.append(ex)
+                self.p_label.append(self.label[self.new_ex_id])
             else:
                 tmp.append(ex)
 
         if not tmp:
-            self.ex_id.pop(cluster_id)
+            self.ex_id.pop(self.cluster_id)
         else:
-            self.ex_id[cluster_id] = tmp
-
-        return p_idx, p_label, p_dist
+            self.ex_id[self.cluster_id] = tmp
 
 
     def select_example(self):
@@ -231,9 +241,9 @@ class active_learning():
             ex_N = sorted(ex_N, key=lambda x: x[-1],reverse=True)
 
             self.labeled_set = []
-            p_idx = []
-            p_label = []
-            p_dist = dd()
+            self.p_idx = []
+            self.p_label = []
+            self.p_dist = dd()
             #first batch of exs: pick centroid of each cluster, and cluster visited based on its size
             ctr = 0
             for ee in ex_N:
@@ -246,11 +256,20 @@ class active_learning():
                 if ctr < 3:
                     continue
 
+                self.new_ex_id = idx
+                self.cluster_id = c_idx
+
                 self.update_tao()
+                self.update_pseudo_set()
 
-                p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
+                try:
+                    acc = self.get_pred_acc(fn_test, label_test, self.p_idx, self.p_label)
+                except Exception as e:
+                    exc_type, exc_obj, exc_tb = sys.exc_info()
+                    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                    print exc_type, e.args, fname, 'on line ' + str(exc_tb.tb_lineno)
+                    acc = np.nan
 
-                acc = self.get_pred_acc(fn_test, label_test, p_idx, p_label)
                 self.acc_sum[ctr-1].append(acc)
 
 
@@ -260,40 +279,43 @@ class active_learning():
             label_test = self.label[test]
             for rr in range(ctr, self.rounds):
 
-                if not p_idx:
+                if not self.p_idx:
                     fn_train = self.fn[self.labeled_set]
                     label_train = self.label[self.labeled_set]
                 else:
-                    fn_train = self.fn[np.hstack((self.labeled_set, p_idx))]
-                    label_train = np.hstack((self.label[self.labeled_set], p_label))
+                    fn_train = self.fn[np.hstack((self.labeled_set, self.p_idx))]
+                    label_train = np.hstack((self.label[self.labeled_set], self.p_label))
 
                 self.clf.fit(fn_train, label_train)
 
-                idx, c_idx, = self.select_example()
+                idx, c_idx = self.select_example()
                 self.labeled_set.append(idx)
+                self.new_ex_id = idx
+                self.cluster_id = c_idx
                 cl_id.append(c_idx) #track picked cluster id on each iteration
                 # ex_al.append([rr,key,v[0][-2],self.label[idx],raw_pt[idx]]) #for debugging
 
+                #update model
                 self.update_tao()
-                p_idx, p_label, p_dist = self.update_pseudo_set(idx, c_idx, p_idx, p_label, p_dist)
+                self.update_pseudo_set()
 
-                acc = self.get_pred_acc(fn_test, label_test, p_idx, p_label)
+                acc = self.get_pred_acc(fn_test, label_test, self.p_idx, self.p_label)
                 self.acc_sum[rr].append(acc)
 
-            print '# of p label', len(p_label)
+            print '# of p label', len(self.p_label)
             print cl_id
-            if not p_label:
+            if not self.p_label:
                 print 'p label acc', 0
                 p_acc.append(0)
             else:
-                print 'p label acc', sum(self.label[p_idx]==p_label)/float(len(p_label))
-                p_acc.append(sum(self.label[p_idx]==p_label)/float(len(p_label)))
+                print 'p label acc', sum(self.label[self.p_idx]==self.p_label)/float(len(self.p_label))
+                p_acc.append(sum(self.label[self.p_idx]==self.p_label)/float(len(self.p_label)))
             print '----------------------------------------------------'
             print '----------------------------------------------------'
 
         print 'class count of clf training ex:', ct(label_train)
         self.acc_sum = [i for i in self.acc_sum if i]
-        print 'average acc:', [np.mean(i) for i in self.acc_sum]
+        print 'average acc:', [np.nanmean(i) for i in self.acc_sum]
         print 'average p label acc:', np.mean(p_acc)
 
         #self.plot_confusion_matrix(label_test, fn_test)
