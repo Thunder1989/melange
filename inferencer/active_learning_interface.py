@@ -9,6 +9,7 @@ from sklearn.svm import LinearSVC
 from Inferencer import Inferencer
 from algorithm.active_learning import active_learning
 
+
 def get_name_features(names):
 
         name = []
@@ -20,6 +21,7 @@ def get_name_features(names):
         fn = cv.fit_transform(name).toarray()
 
         return fn
+
 
 class active_learning_interface(Inferencer):
 
@@ -70,6 +72,7 @@ class active_learning_interface(Inferencer):
 
 
     def update_model(self):
+
         self.learner.update_model()
 
 

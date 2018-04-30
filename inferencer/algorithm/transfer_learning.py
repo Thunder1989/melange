@@ -105,6 +105,10 @@ class transfer_learning:
                 self.train_label = self.test_label
                 self.test_label = l_tmp
 
+            assert self.test_fn.shape[0] == self.test_fd.shape[0]
+            assert self.train_fd.shape[0] == len(self.train_label)
+            assert self.test_fd.shape[0] == len(self.test_label)
+
 
         def get_base_learners(self):
 
@@ -116,7 +120,7 @@ class transfer_learning:
                 b.fit(self.train_fd, self.train_label) #train each base classifier
 
 
-        def run(self):
+        def run_auto(self):
 
             '''
             test direct data feature based transfer accuracy on the new building
@@ -145,10 +149,10 @@ class transfer_learning:
 
             n_class = 32/2
             c = KMeans(init='k-means++', n_clusters=n_class, n_init=10)
-            c.fit(test_fn)
-            dist = np.sort(c.transform(test_fn))
+            c.fit(self.test_fn)
+            dist = np.sort(c.transform(self.test_fn))
             ex_id = DD(list) #example id for each C
-            for i,j,k in zip(c.labels_, xrange(len(test_fn)), dist):
+            for i,j,k in zip(c.labels_, xrange(len(self.test_fn)), dist):
                 ex_id[i].append(int(j))
 
             #getting neighors for each ex
@@ -181,7 +185,7 @@ class transfer_learning:
                 pred = []
                 l_id = []
                 output = DD()
-                for i in xrange(len(test_fn)):
+                for i in xrange(len(self.test_fn)):
                     #getting C v.s. F similiarity
                     w = []
                     v_c = set(nb_c[i])
@@ -193,9 +197,9 @@ class transfer_learning:
                         d_i = 0
                         d_u = 0
                         for it in inter:
-                            d_i += np.linalg.norm(test_fn[i]-test_fn[it])
+                            d_i += np.linalg.norm(self.test_fn[i]-self.test_fn[it])
                         for u in union:
-                            d_u += np.linalg.norm(test_fn[i]-test_fn[u])
+                            d_u += np.linalg.norm(self.test_fn[i]-self.test_fn[u])
                         if len(inter) != 0:
                             sim = 1 - (d_i/d_u)/cns
                             #sim = (d_i/d_u)/cns
@@ -248,8 +252,8 @@ if __name__ == "__main__":
     test_label = input2[:,-1]
 
     ptn = [i.strip().split('\\')[-1][:-5] for i in open('../data/rice_pt_sdh').readlines()]
-    test_fn = get_name_features(ptn)
+    self.test_fn = get_name_features(ptn)
 
-    tl = transfer_learning(train_fd, test_fd, train_label, test_label, test_fn, True)
-    tl.run()
+    tl = transfer_learning(train_fd, test_fd, train_label, test_label, self.test_fn, True)
+    tl.run_auto()
 

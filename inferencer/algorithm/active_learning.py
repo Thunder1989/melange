@@ -292,6 +292,7 @@ class active_learning():
                 self.labeled_set.append(idx)
                 self.new_ex_id = idx
                 self.cluster_id = c_idx
+
                 cl_id.append(c_idx) #track picked cluster id on each iteration
                 # ex_al.append([rr,key,v[0][-2],self.label[idx],raw_pt[idx]]) #for debugging
 
@@ -310,8 +311,7 @@ class active_learning():
             else:
                 print 'p label acc', sum(self.label[self.p_idx]==self.p_label)/float(len(self.p_label))
                 p_acc.append(sum(self.label[self.p_idx]==self.p_label)/float(len(self.p_label)))
-            print '----------------------------------------------------'
-            print '----------------------------------------------------'
+            print '-------------------------------------------------------------------------------------'
 
         print 'class count of clf training ex:', ct(label_train)
         self.acc_sum = [i for i in self.acc_sum if i]
