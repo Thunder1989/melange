@@ -29,7 +29,7 @@ from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "al_cb_prob"
+modelName = "al_cb_prob_multinomial"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
@@ -49,6 +49,12 @@ def get_name_features(names):
 		fn = cv.fit_transform(name).toarray()
 
 		return fn
+
+def softmaxFunc(coefs, feature):
+	a = np.exp(np.dot(coefs, feature.T))
+	a = a/sum(a)
+
+	return a
 
 class active_learning:
 
@@ -79,7 +85,7 @@ class active_learning:
 			unlabeledId = unlabeled_list[unlabeledIdIndex]
 			# print("unlabeledId\t", unlabeledId)
 			labelPredictProb = self.clf.predict_proba(self.fn[unlabeledId].reshape(1, -1))[0]
-
+			print(labelPredictProb)
 			# print(self.clf.coef_)
 
 			labelIndexMap = {} ##labelIndex: labelProb
@@ -106,9 +112,12 @@ class active_learning:
 			else:
 				maxCoef = self.clf.coef_[maxLabelIndex]
 				subMaxCoef = self.clf.coef_[subMaxLabelIndex]
-				coefDiff = np.dot(maxCoef, self.fn[unlabeledId])-np.dot(subMaxCoef, self.fn[unlabeledId])
+				# coefDiff = np.dot(maxCoef, self.fn[unlabeledId])-np.dot(subMaxCoef, self.fn[unlabeledId])
 
-				probDiff = sigmoid(np.dot(maxCoef, self.fn[unlabeledId])-self.m_selectCbRate*selectCB)-sigmoid(np.dot(subMaxCoef, self.fn[unlabeledId])+self.m_selectCbRate*selectCB)
+				probDiff = np.exp(np.dot(maxCoef, self.fn[unlabeledId])-self.m_selectCbRate*selectCB)-np.exp(np.dot(subMaxCoef, self.fn[unlabeledId])+self.m_selectCbRate*selectCB)
+			
+			coefProb = softmaxFunc(self.clf.coef_, self.fn[unlabeledId].reshape(1, -1))
+			print("coefProb", coefProb)
 
 			idScore = 1-probDiff
 			# print("idScore", idScore)
@@ -268,4 +277,3 @@ if __name__ == "__main__":
 	al = active_learning(fold, rounds, fn, label)
 
 	al.run_CV()
-

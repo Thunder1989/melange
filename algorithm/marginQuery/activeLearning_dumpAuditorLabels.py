@@ -1,5 +1,5 @@
 """
-learning for auditor with random initialization, judge classifier to judge whether transfer learning is correct. 
+proactive learning with random initialization, judge classifier to judge whether transfer learning is correct. 
 """
 
 import numpy as np
@@ -31,7 +31,7 @@ from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "active_auditor_random"
+modelName = "active_auditor_dumpLabels"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
@@ -82,26 +82,21 @@ class _ActiveLearning:
 
 	def select_example(self, unlabeled_list):
 
-		return random.sample(unlabeled_list, 1)[0]
-
 		unlabeledIdScoreMap = {} ###unlabeledId:idscore
 		unlabeledIdNum = len(unlabeled_list)
+		# print("---------------")
 		for unlabeledIdIndex in range(unlabeledIdNum):
 			unlabeledId = unlabeled_list[unlabeledIdIndex]
-			# print("unlabeledId\t", unlabeledId)
-			# labelPredictProb = self.m_clf.predict_proba(self.m_targetNameFeature[unlabeledId].reshape(1, -1))[0]
-			labelPredictProb = self.m_judgeClassifier.predict_proba(self.m_targetNameFeature[unlabeledId].reshape(1, -1))[0]
-			# print(labelPredictProb)
-			# sortedLabelPredictProb = sorted(labelPredictProb)
-			sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
-			# print(sortedLabelPredictProb)
-			maxLabelPredictProb = sortedLabelPredictProb[0]
-			subMaxLabelPredictProb = sortedLabelPredictProb[1]
-			# print("maxLabelPredictProb\t", maxLabelPredictProb)
-			idScore = 1-(maxLabelPredictProb-subMaxLabelPredictProb)
-			# print("idScore\t", idScore)
+			
+			selectCB = self.get_confidence_bound(unlabeledId)
+			# print("selectCB", self.m_selectCbRate*selectCB)
+			# LCB = maxLabelPredictProb+self.m_selectCbRate*selectCB
+
+			idScore = selectCB
+
 			unlabeledIdScoreMap[unlabeledId] = idScore
 
+		# sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
 		sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
 
 		return sortedUnlabeledIdList[0]
@@ -127,56 +122,6 @@ class _ActiveLearning:
 		self.m_randomForest = RFC(n_estimators=100, criterion='entropy', random_state=3)
 
 		self.m_randomForest.fit(self.m_sourceDataFeature, self.m_sourceLabel)
-
-	def init_confidence_bound(self, featureDim):
-		self.m_A = self.m_lambda*np.identity(featureDim)
-		self.m_AInv = np.linalg.inv(self.m_A)
-
-	def update_confidence_bound(self, exId):
-		self.m_A += np.outer(self.m_targetNameFeature[exId], self.m_targetNameFeature[exId])
-		self.m_AInv = np.linalg.inv(self.m_A)
-
-	def get_confidence_bound(self, exId):
-		CB = np.sqrt(np.dot(np.dot(self.m_targetNameFeature[exId], self.m_AInv), self.m_targetNameFeature[exId]))
-
-		return CB
-
-	def get_judgeClassifier_prob(self, judgeParam, feature, CB):
-		rawProb = np.dot(judgeParam, np.transpose(feature))
-		judgeProbThreshold = 0.5
-
-		cbProb = sigmoid(rawProb-self.m_cbRate*CB)
-		# print("cbProb\t", cbProb)
-		if cbProb > judgeProbThreshold:
-			return True
-		else:
-			return False
-
-	def get_transfer_flag(self, transferFeatureList, transferFlagList, exId):
-		predLabel = self.m_randomForest.predict(self.m_targetDataFeature[exId].reshape(1, -1))[0]
-
-		if len(np.unique(transferFlagList)) > 1:
-			self.m_judgeClassifier.fit(np.array(transferFeatureList), np.array(transferFlagList))
-		else:
-			return False, predLabel
-
-		# CB = self.get_confidence_bound(exId)
-		transferProb = self.m_judgeClassifier.predict_proba(self.m_targetNameFeature[exId].reshape(1, -1))
-		maxTransferProb = np.max(transferProb)
-		transferFlag = False
-		if maxTransferProb > 0.7:
-
-		# print("transferProb\t", maxTransferProb)
-			transferFlag = self.m_judgeClassifier.predict(self.m_targetNameFeature[exId].reshape(1, -1))
-		# print("transferFlag\t", transferFlag)
-		# transferFlag = self.get_judgeClassifier_prob(self.m_judgeClassifier.coef_, self.m_targetNameFeature[exId].reshape(1, -1), CB)
-
-		if transferFlag:
-			# print("true", transferFlag)
-			return True, predLabel
-		else:
-			# print("false", transferFlag)
-			return False, predLabel
 
 	def run_CV(self):
 
@@ -216,119 +161,57 @@ class _ActiveLearning:
 		totalAuditorAccList = [[] for i in range(10)]
 
 		targetNameFeature = self.m_targetNameFeature
+		targetLabel = self.m_targetLabel
 		targetDataFeature = self.m_targetDataFeature
 		targetTransferLabel = self.m_randomForest.predict(targetDataFeature)
+		targetAuditorLabelList = 1.0*(targetLabel == targetTransferLabel)
 
-		targetAuditorLabel = 1.0*( self.m_targetLabel == targetTransferLabel)
+		targetAuditorLabelFile = "selectedTargetAuditorLabel_5types.txt"
 
-		for foldIndex in range(foldNum):
-			auditorMap = {} ##class: (neg, pos)
+		selectedInstanceIDFile = "selectedNameFeature4Label_5types.txt"
 
-			# self.clf = LinearSVC(random_state=3)
+		writeSelectedAuditorLabelFile(targetLabel, targetAuditorLabelList, targetAuditorLabelFile, selectedInstanceIDFile)
 
-			# self.m_clf = LR(random_state=3)
-			self.m_judgeClassifier = LR(random_state=3)
-			# self.m_judgeClassifier = LinearSVC(random_state=3)
+def writeSelectedAuditorLabelFile(targetLabel, targetAuditorLabelList, targetAuditorLabelFile, selectedInstanceIDFile):
+	f = open(targetAuditorLabelFile, "w")
+	instanceF = open(selectedInstanceIDFile, "w")
 
-			train = []
-			for preFoldIndex in range(foldIndex):
-				train.extend(foldInstanceList[preFoldIndex])
+	targetLabelList = [1, 5, 8, 10, 21]
 
-			test = foldInstanceList[foldIndex]
-			for postFoldIndex in range(foldIndex+1, foldNum):
-				train.extend(foldInstanceList[postFoldIndex])
+	selectedInstanceIDList = []
+	targetExampleNum = len(targetAuditorLabelList)
+	for i in range(targetExampleNum):
+		if targetLabel[i] in targetLabelList:
+			targetAuditorLabel = targetAuditorLabelList[i]
+			f.write(str(targetAuditorLabel)+"\n")
+			# instanceF.write(str(i)+"\n")
+			selectedInstanceIDList.append(i)
 
-			trainNum = int(totalInstanceNum*0.9)
+	lineIndex = 0
 
-			targetNameFeatureTrain = self.m_targetNameFeature[train]
-			# targetAuditorLabelTrain = targetAuditorLabel[train]
+	print(selectedInstanceIDList)
+	nameFile = open('../../data/rice_pt_sdh')
+	for rawLine in nameFile:
+		if lineIndex not in selectedInstanceIDList:
+			lineIndex += 1
+			continue
 
-			targetNameFeatureTest = self.m_targetNameFeature[test]
-			targetAuditorLabelTest = targetAuditorLabel[test]
+		print(lineIndex)
 
-			# posTargetAuditorNum = sum(targetAuditorLabelTest)
-			# posRatio = posTargetAuditorNum*1.0/len(targetAuditorLabelTest)
-			# print("posRatio\t", posRatio)
+		instanceF.write(rawLine)
+		lineIndex += 1
 
-			sourceUniqueClass = np.unique(self.m_sourceLabel)
-
-			initExList = []
-			random.seed(5)
-			initExList = random.sample(train, 3)
-			
-			targetNameFeatureInit = self.m_targetNameFeature[initExList]
-			targetAuditorLabelInit = targetAuditorLabel[initExList]
-			print("initExList\t", initExList, targetAuditorLabelInit)
-
-			queryIter = 0
-			labeledExList = []
-			unlabeledExList = []
-			###labeled index
-			labeledExList.extend(initExList)
-			unlabeledExList = list(set(train)-set(labeledExList))
-
-			activeLabelNum = 3.0
-
-			featureDim = len(targetNameFeatureTrain[0])
-			# self.init_confidence_bound(featureDim)
-
-			targetNameFeatureIter = targetNameFeatureInit
-			targetAuditorLabelIter = targetAuditorLabelInit
-
-			while activeLabelNum < rounds:
-				
-				self.m_judgeClassifier.fit(targetNameFeatureIter, targetAuditorLabelIter)
-
-				exId = self.select_example(unlabeledExList) 
-				
-				transferLabel = targetTransferLabel[exId]
-				exLabel = self.m_targetLabel[exId]
-				if transferLabel == exLabel:
-					# print("correct transfer")
-					targetNameFeatureIter = np.vstack((targetNameFeatureIter, self.m_targetNameFeature[exId]))
-					targetAuditorLabelIter = np.hstack((targetAuditorLabelIter, 1.0))
-					print(exId, transferLabel, exLabel, 1.0)
-				else:
-					# print("wrong transfer")
-					targetNameFeatureIter = np.vstack((targetNameFeatureIter, self.m_targetNameFeature[exId]))
-					targetAuditorLabelIter = np.hstack((targetAuditorLabelIter, 0.0))
-					print(exId, transferLabel, exLabel, 0.0)
-
-
-				labeledExList.append(exId)
-				unlabeledExList.remove(exId)
-
-				acc, precision, recall = self.get_pred_acc(targetNameFeatureTest, targetAuditorLabelTest, targetNameFeatureIter, targetAuditorLabelIter)
-				totalAuditorAccList[cvIter].append(acc)
-				totalAuditorPrecisionList[cvIter].append(acc)
-				totalAuditorRecallList[cvIter].append(acc)
-				# if activeLabelFlag:
-				# 	humanAccList[cvIter].append(acc)
-				queryIter += 1
-				activeLabelNum += 1
-
-			cvIter += 1      
-
-		AuditorPrecisionFile = modelVersion+"_auditor_precision.txt"
-		writeFile(totalAuditorPrecisionList, AuditorPrecisionFile)
-
-		AuditorRecallFile = modelVersion+"_auditor_recall.txt"
-		writeFile(totalAuditorRecallList, AuditorRecallFile)
-
-		# AuditorAccFile = modelVersion+"_auditor_acc.txt"
-		# writeFile(totalAuditorAccList, AuditorAccFile)
-
-		totalACCFile = modelVersion+"_acc.txt"
-		writeFile(totalAuditorAccList, totalACCFile)
-
-def writeFile(valueList, fileName):
-	f = open(fileName, "w")
-	for i in range(10):
-		num4Iter = len(valueList[i])
-		for j in range(num4Iter):
-			f.write(str(valueList[i][j])+"\t")
-		f.write("\n")
 	f.close()
+	instanceF.close()
+
+def writeAuditorLabelFile(targetAuditorLabelList, targetAuditorLabelFile):
+	f = open(targetAuditorLabelFile, "w")
+	targetExampleNum = len(targetAuditorLabelList)
+	for i in range(targetExampleNum):
+		targetAuditorLabel = targetAuditorLabelList[i]
+		f.write(str(targetAuditorLabel)+"\n")
+	f.close()
+
 
 def data_analysis(sourceLabelList, targetLabelList):
 	sourceLabelNum = len(sourceLabelList)
@@ -398,4 +281,3 @@ if __name__ == "__main__":
 	al = _ActiveLearning(fold, rounds, source_fd, sourceLabel, target_fd, targetLabel, target_fn)
 
 	al.run_CV()
-

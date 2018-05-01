@@ -1,5 +1,5 @@
 """
-active learning with random initialization and least confidence query strategy
+proactive learning with random initialization, judge classifier to judge whether transfer learning is correct. 
 """
 
 import numpy as np
@@ -24,19 +24,19 @@ from sklearn.ensemble import RandomForestClassifier as RFC
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression as LR
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import precision_score
+from sklearn.metrics import recall_score
 from sklearn.metrics import confusion_matrix as CM
 from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "al_cb_prob"
+modelName = "active_auditor_type6_LCBUCB"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
 modelVersion = modelName+"_"+timeStamp
-
-def sigmoid(x):
-  	  return (1 / (1 + np.exp(-x)))
+# random.seed(3)
 
 def get_name_features(names):
 
@@ -49,6 +49,9 @@ def get_name_features(names):
 		fn = cv.fit_transform(name).toarray()
 
 		return fn
+
+def sigmoid(x):
+  	  return (1 / (1 + np.exp(-x)))
 
 class active_learning:
 
@@ -63,101 +66,66 @@ class active_learning:
 		self.tao = 0
 		self.alpha_ = 1
 
+		self.m_lambda = 0.01
+		self.m_A = 0
+		self.m_AInv = 0
+		self.m_cbRate = 0.05 ##0.05
+
 		self.ex_id = dd(list)
 
-		self.m_lambda = 0.01
-		self.m_selectA = 0
-		self.m_selectAInv = 0
-		self.m_selectCbRate = 0.002
-		self.clf = 0
-
 	def select_example(self, unlabeled_list):
+
 		unlabeledIdScoreMap = {} ###unlabeledId:idscore
 		unlabeledIdNum = len(unlabeled_list)
 		# print("---------------")
+		alpha = 0.1
 		for unlabeledIdIndex in range(unlabeledIdNum):
 			unlabeledId = unlabeled_list[unlabeledIdIndex]
-			# print("unlabeledId\t", unlabeledId)
-			labelPredictProb = self.clf.predict_proba(self.fn[unlabeledId].reshape(1, -1))[0]
-
-			# print(self.clf.coef_)
-
-			labelIndexMap = {} ##labelIndex: labelProb
-			labelNum = len(labelPredictProb)
-			for labelIndex in range(labelNum):
-				labelIndexMap.setdefault(labelIndex, labelPredictProb[labelIndex])
-
-			sortedLabelIndexList = sorted(labelIndexMap, key=labelIndexMap.__getitem__, reverse=True)
-			# print("labelPredictProb\t", labelPredictProb)
-			# sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
-			# # print(sortedLabelPredictProb)
-			# maxLabelPredictProb = sortedLabelPredictProb[0]
-			# subMaxLabelPredictProb = sortedLabelPredictProb[1]
-			maxLabelIndex = sortedLabelIndexList[0]
-			subMaxLabelIndex = sortedLabelIndexList[1]
-
-			selectCB = self.get_select_confidence_bound(unlabeledId)
-
-			coefDiff = 0
-			if labelNum == 2:
-				# coefDiff = np.dot(self.clf.coef_, self.fn[unlabeledId])
-				print("error")
-				print(debug)
-			else:
-				maxCoef = self.clf.coef_[maxLabelIndex]
-				subMaxCoef = self.clf.coef_[subMaxLabelIndex]
-				coefDiff = np.dot(maxCoef, self.fn[unlabeledId])-np.dot(subMaxCoef, self.fn[unlabeledId])
-
-				probDiff = sigmoid(np.dot(maxCoef, self.fn[unlabeledId])-self.m_selectCbRate*selectCB)-sigmoid(np.dot(subMaxCoef, self.fn[unlabeledId])+self.m_selectCbRate*selectCB)
-
-			idScore = 1-probDiff
-			# print("idScore", idScore)
-
-			# print(maxLabelIndex, subMaxLabelIndex)
-		
-			# marginProb = maxLabelPredictProb-subMaxLabelPredictProb
-
-
+			
+			selectCB = self.get_confidence_bound(unlabeledId)
 			# print("selectCB", self.m_selectCbRate*selectCB)
 			# LCB = maxLabelPredictProb+self.m_selectCbRate*selectCB
-				
-			# LCB = sigmoid(coefDiff) -2*selectCB
 
-			# idScore = LCB
+			idScore = np.abs(np.dot(self.m_clf.coef_, self.fn[unlabeledId]))-2*alpha*selectCB
 
-			unlabeledIdScoreMap[unlabeledId] = idScore
+			# idScore = -selectCB
 
+			# print(np.dot(self.m_clf.coef_, self.fn[unlabeledId]), 2*selectCB, 2*alpha*selectCB)
+			unlabeledIdScoreMap[unlabeledId] = 1-idScore
+		# exit()
 		# sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
 		sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
 
 		return sortedUnlabeledIdList[0]
-
-	def init_confidence_bound(self, featureDim):
-		self.m_selectA = self.m_lambda*np.identity(featureDim)
-		self.m_selectAInv = np.linalg.inv(self.m_selectA)
-
-	def update_select_confidence_bound(self, exId):
-		# print("updating select cb", exId)
-		self.m_selectA += np.outer(self.fn[exId], self.fn[exId])
-		self.m_selectAInv = np.linalg.inv(self.m_selectA)
-
-	def get_select_confidence_bound(self, exId):
-		CB = np.sqrt(np.dot(np.dot(self.fn[exId], self.m_selectAInv), self.fn[exId]))
-
-		return CB
 
 	def get_pred_acc(self, fn_test, label_test, labeled_list):
 
 		fn_train = self.fn[labeled_list]
 		label_train = self.label[labeled_list]
 		
-		self.clf.fit(fn_train, label_train)
-		fn_preds = self.clf.predict(fn_test)
+		self.m_clf.fit(fn_train, label_train)
+		fn_preds = self.m_clf.predict(fn_test)
+
+		# print(len(label_train), sum(label_train), "ratio", sum(label_train)*1.0/len(label_train))
+		# print("label_train", label_train)
 
 		acc = accuracy_score(label_test, fn_preds)
 		# print("acc\t", acc)
 		# print debug
 		return acc
+
+	def init_confidence_bound(self, featureDim):
+		self.m_A = self.m_lambda*np.identity(featureDim)
+		self.m_AInv = np.linalg.inv(self.m_A)
+
+	def update_confidence_bound(self, exId):
+		self.m_A += np.outer(self.fn[exId], self.fn[exId])
+		self.m_AInv = np.linalg.inv(self.m_A)
+
+	def get_confidence_bound(self, exId):
+		CB = np.sqrt(np.dot(np.dot(self.fn[exId], self.m_AInv), self.fn[exId]))
+
+		return CB
 
 	def run_CV(self):
 
@@ -166,6 +134,9 @@ class active_learning:
 		totalInstanceNum = len(self.label)
 		print("totalInstanceNum\t", totalInstanceNum)
 		indexList = [i for i in range(totalInstanceNum)]
+
+		print("featureNum", len(self.fn[0]))
+		print("non zero feature num", sum(self.fn[0]))
 
 		totalTransferNumList = []
 		np.random.seed(3)
@@ -183,11 +154,13 @@ class active_learning:
 		foldInstanceList.append(foldIndexInstanceList)
 		# kf = KFold(totalInstanceNum, n_folds=self.fold, shuffle=True)
 		cvIter = 0
+		# random.seed(3)
 		totalAccList = [[] for i in range(10)]
 		for foldIndex in range(foldNum):
+			
 			# self.clf = LinearSVC(random_state=3)
 
-			self.clf = LR(multi_class="multinomial", solver='lbfgs',random_state=3, fit_intercept=False)
+			self.m_clf = LR(random_state=3, fit_intercept=False)
 
 			train = []
 			for preFoldIndex in range(foldIndex):
@@ -204,22 +177,22 @@ class active_learning:
 
 			fn_train = self.fn[train]
 
-			featureDim = len(fn_train[0])
-			self.init_confidence_bound(featureDim)
-			
 			initExList = []
-			random.seed(5)
+			random.seed(3)
 			initExList = random.sample(train, 3)
 			fn_init = self.fn[initExList]
 			label_init = self.label[initExList]
-
 			print("initExList\t", initExList, label_init)
+
 			queryIter = 3
 			labeledExList = []
 			unlabeledExList = []
 			###labeled index
 			labeledExList.extend(initExList)
 			unlabeledExList = list(set(train)-set(labeledExList))
+
+			featureDim = len(self.fn[0])
+			self.init_confidence_bound(featureDim)
 
 			while queryIter < rounds:
 				fn_train_iter = []
@@ -228,12 +201,11 @@ class active_learning:
 				fn_train_iter = self.fn[labeledExList]
 				label_train_iter = self.label[labeledExList]
 
-				self.clf.fit(fn_train_iter, label_train_iter) 
+				self.m_clf.fit(fn_train_iter, label_train_iter) 
 
-				idx = self.select_example(unlabeledExList) 
-				print(queryIter, "idx", idx, self.label[idx])
-				self.update_select_confidence_bound(idx)
-
+				idx = self.select_example(unlabeledExList)
+				self.update_confidence_bound(idx) 
+				# print(queryIter, "idx", idx, self.label[idx])
 				labeledExList.append(idx)
 				unlabeledExList.remove(idx)
 
@@ -242,7 +214,7 @@ class active_learning:
 				queryIter += 1
 
 			cvIter += 1      
-			
+		
 		totalACCFile = modelVersion+".txt"
 		f = open(totalACCFile, "w")
 		for i in range(10):
@@ -255,9 +227,12 @@ class active_learning:
 
 if __name__ == "__main__":
 
-	raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('../../data/rice_pt_sdh').readlines()]
-	tmp = np.genfromtxt('../../data/rice_hour_sdh', delimiter=',')
-	label = tmp[:,-1]
+	raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('./selectedNameFeature4Label.txt').readlines()]
+	# tmp = np.genfromtxt('../../data/rice_hour_sdh', delimiter=',')
+	# label = tmp[:,-1]
+	# selectedInstanceIDList = [float(i.strip()) for i in open('selectedID4Label.txt').readlines()]
+	label = np.array([float(i.strip()) for i in open('selectedTargetAuditorLabel.txt').readlines()])
+	print("number of types", len(set(label)))
 	print 'class count of true labels of all ex:\n', ct(label)
 
 	mapping = {1:'co2',2:'humidity',4:'rmt',5:'status',6:'stpt',7:'flow',8:'HW sup',9:'HW ret',10:'CW sup',11:'CW ret',12:'SAT',13:'RAT',17:'MAT',18:'C enter',19:'C leave',21:'occu'}
@@ -268,4 +243,3 @@ if __name__ == "__main__":
 	al = active_learning(fold, rounds, fn, label)
 
 	al.run_CV()
-

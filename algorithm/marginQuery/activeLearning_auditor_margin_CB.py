@@ -1,5 +1,5 @@
 """
-active learning with random initialization and min margin
+active learning for auditor with random initialization and min margin
 """
 
 import numpy as np
@@ -29,7 +29,7 @@ from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "al_margin"
+modelName = "al_auditor_type6_margin_CB"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
@@ -67,15 +67,41 @@ class active_learning:
 
 		self.ex_id = dd(list)
 
-	def select_example(self, unlabeled_list):
+		self.m_lambda = 0.01
+		self.m_A = 0
+		self.m_AInv = 0
+		self.m_cbRate = 0.05 ##0.05
+
+	def select_example(self, queryIter, unlabeled_list):
 
 		unlabeledIdScoreMap = {} ###unlabeledId:idscore
 		unlabeledIdNum = len(unlabeled_list)
+
+		# return random.sample(unlabeled_list, 1)[0]
+ 		
+ 		if queryIter > 60:
 		# print("unlabeledIdNum\t", unlabeledIdNum)
-		for unlabeledIdIndex in range(unlabeledIdNum):
-			unlabeledId = unlabeled_list[unlabeledIdIndex]
-			# print("unlabeledId\t", unlabeledId)
-			labelPredictProb = self.clf.predict_proba(self.fn[unlabeledId].reshape(1, -1))[0]
+			for unlabeledIdIndex in range(unlabeledIdNum):
+				unlabeledId = unlabeled_list[unlabeledIdIndex]
+				# print("unlabeledId\t", unlabeledId)
+				labelPredictProb = self.clf.predict_proba(self.fn[unlabeledId].reshape(1, -1))[0]
+				sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
+
+				maxLabelPredictProb = sortedLabelPredictProb[0]
+				subMaxLabelPredictProb = sortedLabelPredictProb[1]
+
+				idScore = 1-(maxLabelPredictProb-subMaxLabelPredictProb)
+				unlabeledIdScoreMap[unlabeledId] = idScore
+
+		else:
+			for unlabeledIdIndex in range(unlabeledIdNum):
+				unlabeledId = unlabeled_list[unlabeledIdIndex]
+				
+				selectCB = self.get_confidence_bound(unlabeledId)
+				idScore = -selectCB
+
+				unlabeledIdScoreMap[unlabeledId] = 1-idScore
+
 			# print("labelPredictProb", labelPredictProb)
 
 			# labelIndexMap = {} ##labelIndex: labelProb
@@ -109,20 +135,20 @@ class active_learning:
 
 
 			# print(labelPredictProb)
-			sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
+			# sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
 			# print(sortedLabelPredictProb)
-			maxLabelPredictProb = sortedLabelPredictProb[0]
-			subMaxLabelPredictProb = sortedLabelPredictProb[1]
+			# maxLabelPredictProb = sortedLabelPredictProb[0]
+			# subMaxLabelPredictProb = sortedLabelPredictProb[1]
 			# print("diff", maxLabelPredictProb-subMaxLabelPredictProb)
 			# print("maxLabelPredictProb\t", maxLabelPredictProb)
-			idScore = 1-(maxLabelPredictProb-subMaxLabelPredictProb)
+			# idScore = 1-(maxLabelPredictProb-subMaxLabelPredictProb)
 			# idScore = coefDiff
 			# print("idScore\t", idScore)
 
-			unlabeledIdScoreMap[unlabeledId] = idScore
 		# print("=======")
 		sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
 
+		# print("selecting ", sortedUnlabeledIdList[0], self.label[sortedUnlabeledIdList[0]])
 		return sortedUnlabeledIdList[0]
 
 	def get_pred_acc(self, fn_test, label_test, labeled_list):
@@ -133,10 +159,26 @@ class active_learning:
 		self.clf.fit(fn_train, label_train)
 		fn_preds = self.clf.predict(fn_test)
 
+		# print(len(label_train), sum(label_train), "ratio", sum(label_train)*1.0/len(label_train))
+		# print("label_train", label_train)
+
 		acc = accuracy_score(label_test, fn_preds)
 		# print("acc\t", acc)
 		# print debug
 		return acc
+
+	def init_confidence_bound(self, featureDim):
+		self.m_A = self.m_lambda*np.identity(featureDim)
+		self.m_AInv = np.linalg.inv(self.m_A)
+
+	def update_confidence_bound(self, exId):
+		self.m_A += np.outer(self.fn[exId], self.fn[exId])
+		self.m_AInv = np.linalg.inv(self.m_A)
+
+	def get_confidence_bound(self, exId):
+		CB = np.sqrt(np.dot(np.dot(self.fn[exId], self.m_AInv), self.fn[exId]))
+
+		return CB
 
 	def run_CV(self):
 
@@ -189,7 +231,7 @@ class active_learning:
 			fn_train = self.fn[train]
 
 			initExList = []
-			random.seed(5)
+			random.seed(3)
 			initExList = random.sample(train, 3)
 			fn_init = self.fn[initExList]
 			label_init = self.label[initExList]
@@ -202,6 +244,9 @@ class active_learning:
 			labeledExList.extend(initExList)
 			unlabeledExList = list(set(train)-set(labeledExList))
 
+			featureDim = len(self.fn[0])
+			self.init_confidence_bound(featureDim)
+
 			while queryIter < rounds:
 				fn_train_iter = []
 				label_train_iter = []
@@ -211,7 +256,9 @@ class active_learning:
 
 				self.clf.fit(fn_train_iter, label_train_iter) 
 
-				idx = self.select_example(unlabeledExList) 
+				idx = self.select_example(queryIter, unlabeledExList) 
+				self.update_confidence_bound(idx) 
+
 				print(queryIter, "idx", idx, self.label[idx])
 				labeledExList.append(idx)
 				unlabeledExList.remove(idx)
@@ -234,9 +281,11 @@ class active_learning:
 
 if __name__ == "__main__":
 
-	raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('../../data/rice_pt_sdh').readlines()]
-	tmp = np.genfromtxt('../../data/rice_hour_sdh', delimiter=',')
-	label = tmp[:,-1]
+	raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('./selectedNameFeature4Label.txt').readlines()]
+	# tmp = np.genfromtxt('../../data/rice_hour_sdh', delimiter=',')
+	# label = tmp[:,-1]
+	# selectedInstanceIDList = [float(i.strip()) for i in open('selectedID4Label.txt').readlines()]
+	label = np.array([float(i.strip()) for i in open('selectedTargetAuditorLabel.txt').readlines()])
 	print("number of types", len(set(label)))
 	print 'class count of true labels of all ex:\n', ct(label)
 

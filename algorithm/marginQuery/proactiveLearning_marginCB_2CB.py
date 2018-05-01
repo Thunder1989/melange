@@ -29,7 +29,7 @@ from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "proactive_margin_LCB05_CbRate0002_random5"
+modelName = "proactive_marginCB_2CB05_CbRate0002_random5"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
@@ -75,6 +75,14 @@ class _ProactiveLearning:
 		self.m_AInv = 0
 		self.m_cbRate = 0.002 ##0.05
 
+		self.m_judgeA = 0
+		self.m_judgeAInv = 0
+		self.m_judgeCbRate = 0.002
+
+		self.m_selectA = 0
+		self.m_selectAInv = 0
+		self.m_selectCbRate = 0.002
+
 		self.m_judgeClassifier = 0
 		self.m_clf = 0
 
@@ -82,24 +90,72 @@ class _ProactiveLearning:
 
 		unlabeledIdScoreMap = {} ###unlabeledId:idscore
 		unlabeledIdNum = len(unlabeled_list)
+
 		for unlabeledIdIndex in range(unlabeledIdNum):
 			unlabeledId = unlabeled_list[unlabeledIdIndex]
 			# print("unlabeledId\t", unlabeledId)
 			labelPredictProb = self.m_clf.predict_proba(self.m_targetNameFeature[unlabeledId].reshape(1, -1))[0]
-			# print(labelPredictProb)
-			# sortedLabelPredictProb = sorted(labelPredictProb)
-			sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
-			# print(sortedLabelPredictProb)
-			maxLabelPredictProb = sortedLabelPredictProb[0]
-			subMaxLabelPredictProb = sortedLabelPredictProb[1]
-			# print("maxLabelPredictProb\t", maxLabelPredictProb)
-			idScore = 1-(maxLabelPredictProb-subMaxLabelPredictProb)
-			# print("idScore\t", idScore)
+			# print(self.clf.coef_)
+
+			labelIndexMap = {} ##labelIndex: labelProb
+			labelNum = len(labelPredictProb)
+			for labelIndex in range(labelNum):
+				labelIndexMap.setdefault(labelIndex, labelPredictProb[labelIndex])
+
+			sortedLabelIndexList = sorted(labelIndexMap, key=labelIndexMap.__getitem__, reverse=True)
+			# print("labelPredictProb\t", labelPredictProb)
+			# sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
+			# # print(sortedLabelPredictProb)
+			# maxLabelPredictProb = sortedLabelPredictProb[0]
+			# subMaxLabelPredictProb = sortedLabelPredictProb[1]
+			maxLabelIndex = sortedLabelIndexList[0]
+			subMaxLabelIndex = sortedLabelIndexList[1]
+
+			selectCB = self.get_select_confidence_bound(unlabeledId)
+
+			coefDiff = 0
+			if labelNum == 2:
+				# coefDiff = np.dot(self.clf.coef_, self.fn[unlabeledId])
+				print("error")
+				print(debug)
+			else:
+				maxCoef = self.m_clf.coef_[maxLabelIndex]
+				subMaxCoef = self.m_clf.coef_[subMaxLabelIndex]
+				coefDiff = np.dot(maxCoef, self.m_targetNameFeature[unlabeledId])-np.dot(subMaxCoef, self.m_targetNameFeature[unlabeledId])
+
+				# probDiff = sigmoid(np.dot(maxCoef, self.fn[unlabeledId])-self.m_selectCbRate*selectCB)-sigmoid(np.dot(subMaxCoef, self.fn[unlabeledId])+self.m_selectCbRate*selectCB)
+			# print(coefDiff, selectCB, self.m_selectCbRate*selectCB)
+			LCB = coefDiff-2*0.002*selectCB
+
+			# LCB = coefDiff-2*self.m_selectCbRate*selectCB
+			idScore = 1-LCB
+			
 			unlabeledIdScoreMap[unlabeledId] = idScore
 
 		sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
 
 		return sortedUnlabeledIdList[0]
+
+		# unlabeledIdScoreMap = {} ###unlabeledId:idscore
+		# unlabeledIdNum = len(unlabeled_list)
+		# for unlabeledIdIndex in range(unlabeledIdNum):
+		# 	unlabeledId = unlabeled_list[unlabeledIdIndex]
+		# 	# print("unlabeledId\t", unlabeledId)
+		# 	labelPredictProb = self.m_clf.predict_proba(self.m_targetNameFeature[unlabeledId].reshape(1, -1))[0]
+		# 	# print(labelPredictProb)
+		# 	# sortedLabelPredictProb = sorted(labelPredictProb)
+		# 	sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
+		# 	# print(sortedLabelPredictProb)
+		# 	maxLabelPredictProb = sortedLabelPredictProb[0]
+		# 	subMaxLabelPredictProb = sortedLabelPredictProb[1]
+		# 	# print("maxLabelPredictProb\t", maxLabelPredictProb)
+		# 	idScore = 1-(maxLabelPredictProb-subMaxLabelPredictProb)
+		# 	# print("idScore\t", idScore)
+		# 	unlabeledIdScoreMap[unlabeledId] = idScore
+
+		# sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
+
+		# return sortedUnlabeledIdList[0]
 
 	def get_pred_acc(self, targetNameFeatureTest, targetLabelTest, targetNameFeatureIter, targetLabelIter):
 
@@ -120,15 +176,29 @@ class _ProactiveLearning:
 		self.m_randomForest.fit(self.m_sourceDataFeature, self.m_sourceLabel)
 
 	def init_confidence_bound(self, featureDim):
-		self.m_A = self.m_lambda*np.identity(featureDim)
-		self.m_AInv = np.linalg.inv(self.m_A)
+		self.m_selectA = self.m_lambda*np.identity(featureDim)
+		self.m_selectAInv = np.linalg.inv(self.m_selectA)
 
-	def update_confidence_bound(self, exId):
-		self.m_A += np.outer(self.m_targetNameFeature[exId], self.m_targetNameFeature[exId])
-		self.m_AInv = np.linalg.inv(self.m_A)
+		self.m_judgeA = self.m_lambda*np.identity(featureDim)
+		self.m_judgeAInv = np.linalg.inv(self.m_judgeA)
 
-	def get_confidence_bound(self, exId):
-		CB = np.sqrt(np.dot(np.dot(self.m_targetNameFeature[exId], self.m_AInv), self.m_targetNameFeature[exId]))
+	def update_select_confidence_bound(self, exId):
+		# print("updating select cb", exId)
+		self.m_selectA += np.outer(self.m_targetNameFeature[exId], self.m_targetNameFeature[exId])
+		self.m_selectAInv = np.linalg.inv(self.m_selectA)
+
+	def update_judge_confidence_bound(self, exId):
+		# print("updating judge cb", exId)
+		self.m_judgeA += np.outer(self.m_targetNameFeature[exId], self.m_targetNameFeature[exId])
+		self.m_judgeAInv = np.linalg.inv(self.m_judgeA)
+
+	def get_select_confidence_bound(self, exId):
+		CB = np.sqrt(np.dot(np.dot(self.m_targetNameFeature[exId], self.m_selectAInv), self.m_targetNameFeature[exId]))
+
+		return CB
+
+	def get_judge_confidence_bound(self, exId):
+		CB = np.sqrt(np.dot(np.dot(self.m_targetNameFeature[exId], self.m_judgeAInv), self.m_targetNameFeature[exId]))
 
 		return CB
 
@@ -136,7 +206,11 @@ class _ProactiveLearning:
 		rawProb = np.dot(judgeParam, np.transpose(feature))
 		judgeProbThreshold = 0.5
 
-		cbProb = sigmoid(rawProb-self.m_cbRate*CB)
+		if rawProb > 2*self.m_cbRate*CB:
+			return True
+		else:
+			return False
+		# cbProb = sigmoid(rawProb-self.m_cbRate*CB)
 		# print("cbProb\t", cbProb)
 		if cbProb > judgeProbThreshold:
 			return True
@@ -151,7 +225,7 @@ class _ProactiveLearning:
 		else:
 			return False, predLabel
 
-		CB = self.get_confidence_bound(exId)
+		CB = self.get_judge_confidence_bound(exId)
 
 		transferFlag = self.get_judgeClassifier_prob(self.m_judgeClassifier.coef_, self.m_targetNameFeature[exId].reshape(1, -1), CB)
 
@@ -267,6 +341,8 @@ class _ProactiveLearning:
 				self.m_clf.fit(targetNameFeatureIter, targetLabelIter) 
 
 				exId = self.select_example(unlabeledExList) 
+				self.update_select_confidence_bound(exId)
+
 				# print(idx)
 				activeLabelFlag = False
 				transferLabelFlag, transferLabel = self.get_transfer_flag(transferFeatureList, transferFlagList, exId)
@@ -289,7 +365,7 @@ class _ProactiveLearning:
 						wrongTransferLabelNum += 1.0
 						print("query iteration", queryIter, "error transfer label\t", exLabel, "true label", self.m_targetLabel[exId])
 				else:
-					self.update_confidence_bound(exId)
+					self.update_judge_confidence_bound(exId)
 					activeLabelNum += 1.0
 					activeLabelFlag = True
 

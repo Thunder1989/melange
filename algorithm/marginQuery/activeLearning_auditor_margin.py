@@ -86,6 +86,51 @@ class _ActiveLearning:
 		unlabeledIdNum = len(unlabeled_list)
 		printNum = 10
 		printIndex = 0
+
+		# targetLabelMap = {} ###targetLabel: instanceIDList
+
+		# return random.sample(unlabeled_list, 1)[0]
+
+		# for unlabeledIdIndex in range(unlabeledIdNum):
+		# 	unlabeledId = unlabeled_list[unlabeledIdIndex]
+
+		# 	targetLabel = self.m_targetLabel[unlabeledId]
+
+		# 	if targetLabel not in targetLabelMap:
+		# 		targetLabelMap.setdefault(targetLabel, [])
+
+		# 	targetLabelMap[targetLabel].append(unlabeledId)
+
+		# targetLabelNumMap = ct(self.m_targetLabel[unlabeled_list])
+		# # sortedTargetLabelList = sorted(targetLabelNumMap, key=targetLabelNumMap.__getitem__, reverse=True)
+
+		# sortedTargetLabelList = sorted(targetLabelNumMap, key=targetLabelNumMap.__getitem__, reverse=True)
+		# # sortedTargetLabelList = sorted(targetLabelNumMap, key=targetLabelNumMap.__getitem__)
+
+		# print(sortedTargetLabelList)
+		# # print("targetLabelNumMap", targetLabelNumMap)
+		
+		# mostInstanceTargetLabel = sortedTargetLabelList[0]
+		# print("mostInstanceTargetLabel", mostInstanceTargetLabel)
+		# # print(debug)
+		# instanceList4TargetLabel = targetLabelMap[mostInstanceTargetLabel]
+
+		# for instanceID in instanceList4TargetLabel:
+		# 	labelPredictProb = self.m_judgeClassifier.predict_proba(self.m_targetNameFeature[instanceID].reshape(1, -1))[0]
+		# 	sortedLabelPredictProb = sorted(labelPredictProb, reverse=True)
+
+		# 	maxLabelPredictProb = sortedLabelPredictProb[0]
+		# 	subMaxLabelPredictProb = sortedLabelPredictProb[1]
+
+		# 	idScore = 1-(maxLabelPredictProb-subMaxLabelPredictProb)
+
+		# 	unlabeledIdScoreMap[instanceID] = idScore
+
+		# sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
+
+		# print("selecting", sortedUnlabeledIdList[0])
+		# return sortedUnlabeledIdList[0]
+
 		for unlabeledIdIndex in range(unlabeledIdNum):
 			unlabeledId = unlabeled_list[unlabeledIdIndex]
 			
@@ -111,7 +156,9 @@ class _ActiveLearning:
 		self.m_judgeClassifier.fit(targetNameFeatureIter, targetLabelIter)
 		# self.m_clf.fit(targetNameFeatureIter, targetLabelIter)
 		# targetLabelPreds = self.m_clf.predict(targetNameFeatureTest)
-
+		# print(targetNameFeatureIter, targetLabelIter)
+		print(len(targetLabelIter), sum(targetLabelIter), "pos ratio", sum(targetLabelIter)*1.0/len(targetLabelIter))
+		print(self.m_judgeClassifier.coef_)
 		targetAuditorPreds = self.m_judgeClassifier.predict(targetNameFeatureTest)
 
 		acc = accuracy_score(targetLabelTest, targetAuditorPreds)
@@ -164,6 +211,21 @@ class _ActiveLearning:
 		targetTransferLabel = self.m_randomForest.predict(targetDataFeature)
 		targetAuditorLabel = 1.0*(self.m_targetLabel == targetTransferLabel)
 
+		selectedInstanceAuditorLabelMap = {}
+
+		for instanceIndex in range(totalInstanceNum):
+			auditorLabel = targetAuditorLabel[instanceIndex]
+			targetLabel = self.m_targetLabel[instanceIndex]
+
+			if targetLabel not in selectedInstanceAuditorLabelMap:
+				selectedInstanceAuditorLabelMap.setdefault(targetLabel, [])
+
+			selectedInstanceAuditorLabelMap[targetLabel].append(auditorLabel)
+
+		for targetLabel in selectedInstanceAuditorLabelMap:
+			print("selected target label", targetLabel, ct(selectedInstanceAuditorLabelMap[targetLabel]))
+
+		exit()
 		for foldIndex in range(foldNum):
 			auditorMap = {} ##class: (neg, pos)
 
@@ -228,7 +290,7 @@ class _ActiveLearning:
 				# self.m_clf.fit(targetNameFeatureIter, targetLabelIter) 
 
 				exId = self.select_example(unlabeledExList) 
-				# print(exId)
+				
 				transferLabel = targetTransferLabel[exId]
 				# transferLabelFlag, transferLabel = self.get_transfer_flag(transferFeatureList, transferFlagList, exId)
 
@@ -237,10 +299,12 @@ class _ActiveLearning:
 					# print("correct transfer")
 					targetNameFeatureIter = np.vstack((targetNameFeatureIter, self.m_targetNameFeature[exId]))
 					targetAuditorLabelIter = np.hstack((targetAuditorLabelIter, 1.0))
+					print(exId, transferLabel, exLabel, 1.0)
 				else:
 					# print("wrong transfer")
 					targetNameFeatureIter = np.vstack((targetNameFeatureIter, self.m_targetNameFeature[exId]))
 					targetAuditorLabelIter = np.hstack((targetAuditorLabelIter, 0.0))
+					print(exId, transferLabel, exLabel, 0.0)
 
 				labeledExList.append(exId)
 				unlabeledExList.remove(exId)

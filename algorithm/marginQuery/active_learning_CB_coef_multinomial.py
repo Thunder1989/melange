@@ -29,7 +29,7 @@ from sklearn.preprocessing import normalize
 
 from datetime import datetime
 
-modelName = "al_cb_prob"
+modelName = "al_cb_coef_multinomial"
 timeStamp = datetime.now()
 timeStamp = str(timeStamp.month)+str(timeStamp.day)+str(timeStamp.hour)+str(timeStamp.minute)
 
@@ -68,12 +68,15 @@ class active_learning:
 		self.m_lambda = 0.01
 		self.m_selectA = 0
 		self.m_selectAInv = 0
-		self.m_selectCbRate = 0.002
+		self.m_selectCbRate = 0.001 ###0.005
 		self.clf = 0
 
 	def select_example(self, unlabeled_list):
 		unlabeledIdScoreMap = {} ###unlabeledId:idscore
 		unlabeledIdNum = len(unlabeled_list)
+
+		# unlabeledIDScoreMap2 = {}
+
 		# print("---------------")
 		for unlabeledIdIndex in range(unlabeledIdNum):
 			unlabeledId = unlabeled_list[unlabeledIdIndex]
@@ -108,9 +111,13 @@ class active_learning:
 				subMaxCoef = self.clf.coef_[subMaxLabelIndex]
 				coefDiff = np.dot(maxCoef, self.fn[unlabeledId])-np.dot(subMaxCoef, self.fn[unlabeledId])
 
-				probDiff = sigmoid(np.dot(maxCoef, self.fn[unlabeledId])-self.m_selectCbRate*selectCB)-sigmoid(np.dot(subMaxCoef, self.fn[unlabeledId])+self.m_selectCbRate*selectCB)
+				# probDiff = sigmoid(np.dot(maxCoef, self.fn[unlabeledId])-self.m_selectCbRate*selectCB)-sigmoid(np.dot(subMaxCoef, self.fn[unlabeledId])+self.m_selectCbRate*selectCB)
+			# print(coefDiff, selectCB, self.m_selectCbRate*selectCB)
+			LCB = coefDiff-2*0.01*selectCB
 
-			idScore = 1-probDiff
+			# LCB = coefDiff-2*self.m_selectCbRate*selectCB
+			idScore = 1-LCB
+			# idScore = 1-probDiff
 			# print("idScore", idScore)
 
 			# print(maxLabelIndex, subMaxLabelIndex)
@@ -124,11 +131,19 @@ class active_learning:
 			# LCB = sigmoid(coefDiff) -2*selectCB
 
 			# idScore = LCB
-
+			# unlabeledIDScoreMap2[unlabeledId] = 1-coefDiff
 			unlabeledIdScoreMap[unlabeledId] = idScore
 
 		# sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
 		sortedUnlabeledIdList = sorted(unlabeledIdScoreMap, key=unlabeledIdScoreMap.__getitem__, reverse=True)
+
+		# sortedUnlabeledIdList2 = sorted(unlabeledIDScoreMap2, key=unlabeledIDScoreMap2.__getitem__, reverse=True)
+
+		# for unlabeledIdIndex in range(unlabeledIdNum):
+		# 	unlabeledId = sortedUnlabeledIdList[unlabeledIdIndex]
+		# 	unlabeledId2 = sortedUnlabeledIdList2[unlabeledIdIndex]
+
+		# 	print(sortedUnlabeledIdList[unlabeledIdIndex], unlabeledIdScoreMap[unlabeledId], sortedUnlabeledIdList2[unlabeledIdIndex], unlabeledIDScoreMap2[unlabeledId2])
 
 		return sortedUnlabeledIdList[0]
 
@@ -231,7 +246,7 @@ class active_learning:
 				self.clf.fit(fn_train_iter, label_train_iter) 
 
 				idx = self.select_example(unlabeledExList) 
-				print(queryIter, "idx", idx, self.label[idx])
+				# print(queryIter, "idx", idx, self.label[idx])
 				self.update_select_confidence_bound(idx)
 
 				labeledExList.append(idx)
@@ -268,4 +283,3 @@ if __name__ == "__main__":
 	al = active_learning(fold, rounds, fn, label)
 
 	al.run_CV()
-
