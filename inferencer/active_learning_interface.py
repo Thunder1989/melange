@@ -26,12 +26,12 @@ def get_name_features(names):
 class active_learning_interface(Inferencer):
 
     def __init__(self,
-	target_building,
+        target_building,
         fold,
         rounds
-	):
+        ):
 
-	super(active_learning_interface, self).__init__(
+        super(active_learning_interface, self).__init__(
             target_building='rice'
         )
 

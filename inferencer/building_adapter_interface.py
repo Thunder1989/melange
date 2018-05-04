@@ -24,11 +24,11 @@ def get_name_features(names):
 class building_adapter_interface(Inferencer):
 
     def __init__(self,
-	target_building,
+        target_building,
         source_buildings,
         ):
 
-	super(building_adapter_interface, self).__init__(
+        super(building_adapter_interface, self).__init__(
             target_building = target_building,
             source_buildings = [src for src in source_buildings]
         )
@@ -60,9 +60,14 @@ class building_adapter_interface(Inferencer):
             True
         )
 
+    def predict(self):
+
+        preds, labeled_set = self.learner.predict()
+
+        return preds, labeled_set
+
 
     def run_auto(self):
 
         self.learner.run_auto()
-
 
