@@ -20,8 +20,6 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix as CM
 from sklearn.preprocessing import normalize
 
-from Inferencer import Inferencer
-
 
 class mongodb_interface():
 
