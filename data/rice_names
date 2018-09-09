@@ -1,0 +1,478 @@
+CB Flow Meter RMI308
+Discharge Air Flow
+Nominal Air Flow Status
+Return Air CFM
+Return Airflow CFM
+Return Airflow
+ventOptVavAirflowGross1st Floor Chilled Beam VAS2
+ventOptVavAirflowGross1st Foor Perimeter Devices VAS1
+ventOptVavAirflowGross2nd Floor Chilled Beam Source VAS2
+ventOptVavAirflowGross2nd Floor Perimeter Devices VAS1
+ventOptVavAirflowGross5th Floor Chilled Beam VAS1
+ventOptVavAirflowGross5th Floor Perimeter Devices VAS2
+ventOptVavAirflowGrossBasement Perimeter Devices2
+ventOptVavAirflowGrossChilled Beam Source VAS3
+East Space Temperaturescc2UIP33
+RM511A Zone Temp 3
+RMI 524 Zone Temp 4
+RMI1071 Space Temperature Local
+RMI1072 Space Temperature Local
+RMI108 Space Temperature Local
+RMI1091 Space Temperature Local
+RMI1092 Space Temperature Local
+RMI501 Space Temperature Perimeter
+RMI501 Zone Temp 5
+RMI502 Space Temperature Perimeter
+RMI502 Zone Temp 4
+RMI503 Space Temperature Perimeter
+RMI503 Zone Temp 3
+RMI504 Zone Temp 2
+RMI505 Space Temperature Perimeter
+RMI506 Space Temperature Perimeter
+RMI506 Zone Temp 7
+RMI507 Space Temperature Perimeter
+RMI507 Zone Temp 6
+RMI508 Space Temperature Perimeter
+RMI508 Zone Temp 5
+RMI509 Space Temperature Perimeter
+RMI509 Zone Temp 4
+RMI511A Space Temperature Perimeter
+RMI511B Space Temperature Perimeter
+RMI511B Zone Temp 2
+RMI512 Space Temperature Perimeter
+RMI513 Zone Temp 2
+RMI521 Zone Temp 2
+RMI522 Zone Temp 3
+RMI526 Zone Temp 5
+RMI527 Zone Temp 8
+RMI528 Zone Temp 6
+RMI530 Space Temperature
+RMI534 Space Temperature Perimeter
+RMI536 Space Temperature Perimeter
+RMI536 Zone Temp 2
+RMI542 Zone Temp 2
+RMI552 Zone Temp 3
+RMI561 Zone Temp 3
+RMIC552 Zone Temp 3
+RMIC552 Zone Temp 7
+RMIC557 Zone Temp 6
+RMIC557 Zone Temp 8
+RmI504 Space Temperature Perimeter
+RmI521 Space Temperature
+RmI522 Space Temperature
+RmI524 Space Temperature
+RmI526 Space Temperature
+RmI528 Space Temperature
+RmI532 Space Temperature
+RmI532 Zone Temp 2
+TEMP1 Perm Temp Rm 230
+TEMP1 Space Temperature Perm Rm I228
+TEMP1 Space Temperature RM 212
+TEMP1 Space Temperature RM I322
+TEMP1 Space Temperature RME220
+TEMP1 Space Temperature RMI013
+TEMP1 Space Temperature RMI020
+TEMP1 Space Temperature RMI102
+TEMP1 Space Temperature RMI103
+TEMP1 Space Temperature RMI106
+TEMP1 Space Temperature RMI203
+TEMP1 Space Temperature RMI204
+TEMP1 Space Temperature RMI208
+TEMP1 Space Temperature RMI308
+TEMP1 Space Temperature RMIC058
+TEMP1 Space Temperature RMIC150A
+TEMP1 Space Temperature RMIC259
+TEMP1 Space Temperature RMIC276
+TEMP1 Space Temperature RmI011
+TEMP1 Space TemperatureRMI050
+TEMP2 Perm Temperature Rm 232
+TEMP2 Space Temperature Perm RM I226
+TEMP2 Space Temperature RM 211
+TEMP2 Space Temperature RME222
+TEMP2 Space Temperature RMI015
+TEMP2 Space Temperature RMI024
+TEMP2 Space Temperature RMI101
+TEMP2 Space Temperature RMI105
+TEMP2 Space Temperature RMI202
+TEMP2 Space Temperature RMI207
+TEMP2 Space Temperature RmI007
+TEMP3 Space Temperature Perm RM I224
+TEMP3 Space Temperature RM 210
+TEMP3 Space Temperature RMI017
+TEMP3 Space Temperature RMI104
+TEMP3 Space Temperature RMI201
+TEMP3 Space Temperature RMI206
+TEMP3 Space Temperature RmI007A
+TEMP4 Space Temperature RM 209
+TEMP4 Space Temperature RMI019
+TEMP4 Space Temperature RMI205
+West Space Temperaturescc2UIP34
+Zone 2 Temp Corr 252
+Zone 2 Temp RMCorr
+Zone Temp 2 RM 242
+Zone Temp 2 RM I232
+Zone Temp 2 RME222
+Zone Temp 2 RMI007
+Zone Temp 2 RMI015
+Zone Temp 2 RMI024
+Zone Temp 2 RMI032
+Zone Temp 2 RMI108
+Zone Temp 2 RMI122
+Zone Temp 2 RMI209
+Zone Temp 2 RmI204
+Zone Temp 3 RM I205
+Zone Temp 3 RM210
+Zone Temp 3 RMI007A
+Zone Temp 3 RMI017
+Zone Temp 3 RMI032A
+Zone Temp 3 RMI052
+Zone Temp 3 RMI103
+Zone Temp 3 RMI107
+Zone Temp 3 RMI128
+Zone Temp 3 Rm I224
+Zone Temp 4  RM211
+Zone Temp 4 RM C252
+Zone Temp 4 RM I203
+Zone Temp 4 RMI011
+Zone Temp 4 RMI019
+Zone Temp 4 RMI032B
+Zone Temp 4 RMI102
+Zone Temp 4 RMI106
+Zone Temp 4 RMIC154 Corr
+Zone Temp 5 Local RMI208
+Zone Temp 5 RM I202
+Zone Temp 5 RMI101
+Zone Temp 5 RMIC054
+Zone Temp 5 RMIC057
+Zone Temp 5 RMIC059
+Zone Temp 5 RMIC154A
+Zone Temp 5 RMIC156E
+Zone Temp 6 RM I201
+Zone Temp 6 RMI054
+Zone Temp 6 RMI212
+Zone Temp 6 RMIC156
+Zone Temp RMI104
+averageSpaceTemperatureA1st Floor Area1
+averageSpaceTemperatureA2nd Floor Area1
+averageSpaceTemperatureA3rd Floor Area1
+averageSpaceTemperatureA5th Floor Area1
+averageSpaceTemperatureAAuditorium Area4
+averageSpaceTemperatureABasement Area2
+averageSpaceTemperatureARoom 305 Area2
+averageSpaceTemperatureARoom 306 Area3
+averageSpaceTemperatureARoom 322 Area4
+averageSpaceTemperatureARoom 324 Area5
+spaceSensorA1st Floor Area1
+spaceSensorA2nd Floor Area1
+spaceSensorA3rd Floor Area1
+spaceSensorA5th Floor Area1
+spaceSensorAAuditorium Area4
+spaceSensorABasement Area2
+spaceSensorARoom 306 Area3
+spaceSensorARoom 322 Area4
+spaceSensorARoom 324 Area5
+ductPressOptStatusV1st Floor Chilled Beam VAS2
+ductPressOptStatusV1st Foor Perimeter Devices VAS1
+ductPressOptStatusV2nd Floor Chilled Beam Source VAS2
+ductPressOptStatusV2nd Floor Perimeter Devices VAS1
+ductPressOptStatusV5th Floor Chilled Beam VAS1
+ductPressOptStatusV5th Floor Perimeter Devices VAS2
+ductPressOptStatusVBasement Perimeter Devices2
+ductPressOptStatusVChilled Beam Source VAS3
+economizerStatusA1st Floor Area1
+economizerStatusA2nd Floor Area1
+economizerStatusA5th Floor Area1
+economizerStatusAAuditorium Area4
+economizerStatusABasement Area2
+heatCoolModeStatusA1st Floor Area1
+heatCoolModeStatusA2nd Floor Area1
+heatCoolModeStatusA3rd Floor Area1
+heatCoolModeStatusA5th Floor Area1
+heatCoolModeStatusAAuditorium Area4
+heatCoolModeStatusABasement Area2
+heatCoolModeStatusARoom 305 Area2
+heatCoolModeStatusARoom 306 Area3
+heatCoolModeStatusARoom 322 Area4
+heatCoolModeStatusARoom 324 Area5
+operatingMode1st Floor Chilled Beam VAS2
+operatingMode1st Foor Perimeter Devices VAS1
+operatingMode2nd Floor Chilled Beam Source VAS2
+operatingMode2nd Floor Perimeter Devices VAS1
+operatingMode5th Floor Chilled Beam VAS1
+operatingMode5th Floor Perimeter Devices VAS2
+operatingModeA1st Floor Area1
+operatingModeA2nd Floor Area1
+operatingModeA3rd Floor Area1
+operatingModeA5th Floor Area1
+operatingModeAAuditorium Area4
+operatingModeABasement Area2
+operatingModeARoom 305 Area2
+operatingModeARoom 306 Area3
+operatingModeARoom 322 Area4
+operatingModeARoom 324 Area5
+operatingModeBasement Perimeter Devices2
+operatingModeChilled Beam Source VAS3
+operatingModeV3rd Floor CB VAS2
+operatingModeV3rd Floor Perimiter VAS3
+systemMode1st Floor Chilled Beam VAS2
+systemMode1st Foor Perimeter Devices VAS1
+systemMode2nd Floor Chilled Beam Source VAS2
+systemMode2nd Floor Perimeter Devices VAS1
+systemMode5th Floor Chilled Beam VAS1
+systemMode5th Floor Perimeter Devices VAS2
+systemModeBasement Perimeter Devices2
+systemModeChilled Beam Source VAS3
+ventOptStatusV1st Floor Chilled Beam VAS2
+ventOptStatusV1st Foor Perimeter Devices VAS1
+ventOptStatusV2nd Floor Chilled Beam Source VAS2
+ventOptStatusV2nd Floor Perimeter Devices VAS1
+ventOptStatusV5th Floor Chilled Beam VAS1
+ventOptStatusV5th Floor Perimeter Devices VAS2
+ventOptStatusVBasement Perimeter Devices2
+ventOptStatusVChilled Beam Source VAS3
+Active Cool DAT Stptscc2AV003
+Active Heat DAT Stptscc2AV005
+Cooling Stpt Activescc2AV006
+Cooling Stpt Localdac3AV008
+Freeze Protect Low Limitpgm1AV013
+Heating Stpt Activescc2AV007
+High Static Cutout Limitscc2AV022
+LT Chiller CHW SP OPR
+Max CoolMin Ht DAT Stptscc2TrAV03
+OA CO Damper Close Limit
+Occupied Offsetscc2
+Occupied Standby Offsetscc2
+RMI527 Zone Temp 8 Stpt
+Return CO2 Diffdac1TrAV04
+Return CO2 Diffdac2TrAV04
+Return CO2 Diffdac3TrAV04
+Space CO2 Concentration BASscc2
+Space CO2 Limit
+Space CO2 Low Limit
+Space Humidity High Limit
+Space Humidity Low Limit
+Space Stpt Activescc2AV017
+Thumbwheel Set point Hi Limit
+Thumbwheel Set point Lo Limit
+Ventilation Ratio Limit BAS
+deltaTemperatureA1st Floor Area1
+deltaTemperatureA2nd Floor Area1
+deltaTemperatureA5th Floor Area1
+deltaTemperatureAAuditorium Area4
+deltaTemperatureABasement Area2
+diagCalculationA1st Floor Area1
+diagCalculationA2nd Floor Area1
+diagCalculationA5th Floor Area1
+diagCalculationABasement Area2
+diagVasSourceTempFailureVBasement Perimeter Devices2
+diagVasSourceTempFailureVChilled Beam Source VAS3
+diagVasSystemFailureV2nd Floor Chilled Beam Source VAS2
+diagVasSystemFailureV2nd Floor Perimeter Devices VAS1
+diagVasSystemFailureVBasement Perimeter Devices2
+diagVasSystemFailureVChilled Beam Source VAS3
+diagVasUnableToDriveMaxV2nd Floor Chilled Beam Source VAS2
+diagVasUnableToDriveMaxV2nd Floor Perimeter Devices VAS1
+diagVasUnableToDriveMaxVBasement Perimeter Devices2
+diagVasUnableToDriveMaxVChilled Beam Source VAS3
+diagnosticAlarmPresentA1st Floor Area1
+diagnosticAlarmPresentA2nd Floor Area1
+diagnosticAlarmPresentA5th Floor Area1
+ductPressOptMaxPos1st Floor Chilled Beam VAS2
+ductPressOptMaxPos1st Foor Perimeter Devices VAS1
+ductPressOptMaxPos2nd Floor Chilled Beam Source VAS2
+ductPressOptMaxPos2nd Floor Perimeter Devices VAS1
+ductPressOptMaxPos5th Floor Chilled Beam VAS1
+ductPressOptMaxPos5th Floor Perimeter Devices VAS2
+ductPressOptMaxPosBasement Perimeter Devices2
+ductPressOptMaxPosChilled Beam Source VAS3
+economizerDisableDifferentialDryBulbA1st Floor Area1
+economizerDisableDifferentialDryBulbA2nd Floor Area1
+economizerDisableDifferentialDryBulbA5th Floor Area1
+economizerDisableDifferentialDryBulbAAuditorium Area4
+economizerDisableDifferentialDryBulbABasement Area2
+economizerDisableDifferentialEnthalpyA1st Floor Area1
+economizerDisableDifferentialEnthalpyA2nd Floor Area1
+economizerDisableDifferentialEnthalpyA5th Floor Area1
+economizerDisableDifferentialEnthalpyAAuditorium Area4
+economizerDisableDifferentialEnthalpyABasement Area2
+economizerDisableFixedDewPointA1st Floor Area1
+economizerDisableFixedDewPointA2nd Floor Area1
+economizerDisableFixedDewPointA5th Floor Area1
+economizerDisableFixedDewPointAAuditorium Area4
+economizerDisableFixedDewPointABasement Area2
+economizerDisableFixedDryBulbA1st Floor Area1
+economizerDisableFixedDryBulbA2nd Floor Area1
+economizerDisableFixedDryBulbA5th Floor Area1
+economizerDisableFixedDryBulbAAuditorium Area4
+economizerDisableFixedDryBulbABasement Area2
+economizerDisableFixedEnthalpyA1st Floor Area1
+economizerDisableFixedEnthalpyA2nd Floor Area1
+economizerDisableFixedEnthalpyA5th Floor Area1
+economizerDisableFixedEnthalpyAAuditorium Area4
+economizerDisableFixedEnthalpyABasement Area2
+economizerEnableDifferentialDryBulbA1st Floor Area1
+economizerEnableDifferentialDryBulbA2nd Floor Area1
+economizerEnableDifferentialDryBulbA5th Floor Area1
+economizerEnableDifferentialDryBulbAAuditorium Area4
+economizerEnableDifferentialDryBulbABasement Area2
+economizerEnableDifferentialEnthalpyA1st Floor Area1
+economizerEnableDifferentialEnthalpyA2nd Floor Area1
+economizerEnableDifferentialEnthalpyA5th Floor Area1
+economizerEnableDifferentialEnthalpyAAuditorium Area4
+economizerEnableDifferentialEnthalpyABasement Area2
+economizerEnableFixedDewPointA1st Floor Area1
+economizerEnableFixedDewPointA2nd Floor Area1
+economizerEnableFixedDewPointA5th Floor Area1
+economizerEnableFixedDewPointAAuditorium Area4
+economizerEnableFixedDewPointABasement Area2
+economizerEnableFixedDryBulbA1st Floor Area1
+economizerEnableFixedDryBulbA2nd Floor Area1
+economizerEnableFixedDryBulbA5th Floor Area1
+economizerEnableFixedDryBulbAAuditorium Area4
+economizerEnableFixedDryBulbABasement Area2
+economizerEnableFixedEnthalpyA1st Floor Area1
+economizerEnableFixedEnthalpyA2nd Floor Area1
+economizerEnableFixedEnthalpyA5th Floor Area1
+economizerEnableFixedEnthalpyAAuditorium Area4
+economizerEnableFixedEnthalpyABasement Area2
+occupiedDifferenceA1st Floor Area1
+occupiedDifferenceA2nd Floor Area1
+occupiedDifferenceA5th Floor Area1
+occupiedDifferenceAAuditorium Area4
+occupiedDifferenceABasement Area2
+occupiedOffsetA1st Floor Area1
+occupiedOffsetA2nd Floor Area1
+occupiedOffsetA5th Floor Area1
+occupiedOffsetABasement Area2
+standbyOffsetA1st Floor Area1
+standbyOffsetA2nd Floor Area1
+standbyOffsetA5th Floor Area1
+standbyOffsetAAuditorium Area4
+standbyOffsetABasement Area2
+unoccupiedDifferenceA1st Floor Area1
+unoccupiedDifferenceA2nd Floor Area1
+unoccupiedDifferenceA5th Floor Area1
+unoccupiedDifferenceAAuditorium Area4
+unoccupiedDifferenceABasement Area2
+ventRatioLimitAhuV1st Floor Chilled Beam VAS2
+ventRatioLimitAhuV1st Foor Perimeter Devices VAS1
+ventRatioLimitAhuV2nd Floor Chilled Beam Source VAS2
+ventRatioLimitAhuV2nd Floor Perimeter Devices VAS1
+ventRatioLimitAhuV5th Floor Chilled Beam VAS1
+ventRatioLimitAhuV5th Floor Perimeter Devices VAS2
+ventRatioLimitAhuVBasement Perimeter Devices2
+ventRatioLimitAhuVChilled Beam Source VAS3
+ventRatioLimitVavV1st Floor Chilled Beam VAS2
+ventRatioLimitVavV1st Foor Perimeter Devices VAS1
+ventRatioLimitVavV2nd Floor Chilled Beam Source VAS2
+ventRatioLimitVavV2nd Floor Perimeter Devices VAS1
+ventRatioLimitVavV5th Floor Chilled Beam VAS1
+ventRatioLimitVavV5th Floor Perimeter Devices VAS2
+ventRatioLimitVavVBasement Perimeter Devices2
+ventRatioLimitVavVChilled Beam Source VAS3
+2 Mag CHW Return Temp
+2 Mag CHW Supply Temp
+2 Mag HW Return Temp
+2 Mag HW Supply Temp
+2nd Floor CHW Return Temp
+2nd Floor CHW Supply Temp
+2nd Floor HW Return Temp
+2nd Floor HW Supply Temp
+AHU 3 Supply Fan Temp
+AHU1 PreHeat Coil Temp
+AHU2 PreHeat Coil Temp
+AHU3 CHW Return Temppgm2UIP09
+AHU3 HW Supply Temppgm2UIP11
+CB CHW Return Temp
+CB CHW Supply Temp
+CB Return Temp RMI308
+CB Supply Temp RMI308
+CB Supply Temp
+CB228 CHW Return Temp
+CB228 CHW Supply Temp
+CHW Coil Entering Tempscc2UIP06
+CHW Main Return Temp T4
+CHW Main Supply Temp T3
+CHW Return Mag Temp
+CHW Supply Mag Temp
+CHW System Return Temppgm2UIP20
+CHW System Supply Temppgm2UIP19
+CHWCoilLeavingAirTempscc2UIP01
+Chilled Water Return Temperature
+Chilled Water Supply Temperature
+ChilledBeamCHWReturnTemppgm2UIP14
+ChilledBeamCHWSupplyTemppgm2UIP13
+Cooling Coil DA Tempdac1UIP26
+Cooling Coil DA Tempdac2UIP26
+CoolingEnteringWaterTempdac2UIP16
+CoolingEnterngWaterTempdac3UIP16
+CoolingLeavingWaterTempdac1UIP16
+Discharge Air Tempdac1UIP06
+Discharge Air Tempdac2UIP06
+Discharge Air Tempdac3UIP06
+Discharge Air Temperature
+Discharge Air Temperaturedac1
+Discharge Air Temperaturedac2
+Discharge Air Temperaturedac3
+Discharge Air Temperaturedac4
+Discharge Air Temperaturescc2
+Discharge Air Temperaturewshp1
+Discharge Air Temperaturewshp2
+ER PHRH Water Temppgm2UIP03
+EX Air Temp From ERWdac4UIP01
+Enter CDQ Regen Tempscc2UIP23
+Enter CDQ Supply Tempscc2UIP25
+Entering Water Temperaturewshp1
+Entering Water Temperaturewshp2
+Exhaust Air Tempdac4UIP22
+FCU CHW Return Temppgm2UIP16
+FP VAV Hot Water Return Temp
+FP VAV Hot Water Supply Temp
+FPVAV Hot Water Return Temp
+FPVAV Hot Water Supply Temp
+Glycol Enterng WaterTempdac3UIP17
+HW Coil Entering Tempscc2UIP36
+HW Main Return Temp T2
+HW Main Supply Temp T1
+HW Return Mag Temp1
+HW Return Temp RM I324
+HW Return Temperature Local
+HW Return Temppgm1UIP02
+HW Supply Mag Temp1
+HW Supply Temp RM I324
+HW Supply Temperature Local
+HW Supply Temppgm1UIP01
+HW VAV Return Temp
+HW VAV Supply Temp
+HWS Temp
+Hot Water ReturnTemperature
+Hot Water Supply Temperature
+Leave CDQ Regen Tempscc2UIP29
+Leave CDQ Supply Tempscc2UIP27
+Leaving Water Temperaturewshp1
+Leaving Water Temperaturewshp2
+Medium Temp HW Returnpgm1UIP24
+Medium Temp HW Supplypgm1UIP23
+Mixed Air Tempdac1UIP03
+Mixed Air Tempdac2UIP03
+Mixed Air Tempdac3UIP03
+Mixed Air Temperature Localscc2
+Mixed Air Tempscc2UIP03
+PreheatCoilLeave AirTempscc2UIP02
+PreheatLeavingWaterTempdac3UIP15
+Pump CHW Supply Temppgm2UIP15
+Return Air Tempdac1UIP28
+Return Air Tempdac2UIP28
+Return Air Tempdac3UIP22
+Return Air Tempscc2UIP15
+Temp 2 BAS
+Temp 3 BAS
+VAV 211 HW Return Temp
+VAV 211 HW Supply Temp
+VAV 26 HW Return Temp
+VAV 26 HW Supply Temp
+VAV HW Return Temp
+VAV HW Supply Temp
+WTS1 Chiller CHWS Temp
+WTS1 Chiller CHWS Temppgm3UIP07
+WTS4 AHU3 Entering GLY Temp
