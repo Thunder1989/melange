@@ -4,6 +4,8 @@ import sys
 import math
 import random
 import re
+import os
+import pdb
 import itertools
 import pylab as pl
 
@@ -11,12 +13,12 @@ from collections import defaultdict as dd
 from collections import Counter as ct
 
 from sklearn.cluster import KMeans
-from sklearn.mixture import DPGMM
+#from sklearn.mixture import DPGMM
 
 from sklearn.feature_extraction.text import CountVectorizer as CV
 from sklearn.feature_extraction.text import TfidfVectorizer as TV
-from sklearn.cross_validation import StratifiedKFold
-from sklearn.cross_validation import KFold
+#from sklearn.cross_validation import StratifiedKFold
+from sklearn.model_selection import KFold
 from sklearn.ensemble import RandomForestClassifier as RFC
 from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score
@@ -41,7 +43,7 @@ class active_learning():
 
         self.fold = fold
         self.rounds = rounds
-        self.acc_sum = [[] for i in xrange(self.rounds)] #acc per iter for each fold
+        self.acc_sum = [[] for i in range(self.rounds)] #acc per iter for each fold
 
         self.fn = fn
         self.label = label
@@ -131,9 +133,9 @@ class active_learning():
         #entropy-based cluster selection
         rank = []
         for k,v in sub_pred.items():
-            count = ct(v).values()
-            count[:] = [i/float(max(count)) for i in count]
-            H = np.sum(-p*math.log(p,2) for p in count if p!=0)
+            count = list( ct(v).values() )
+            count[:] = [i/float(sum(count)) for i in count]
+            H = sum(-p*math.log(p,2) for p in count if p!=0)
             rank.append([k,len(v),H])
         rank = sorted(rank, key=lambda x: x[-1], reverse=True)
 
@@ -194,8 +196,8 @@ class active_learning():
         ax = fig.add_subplot(111)
         cax = ax.matshow(cm)
         fig.colorbar(cax)
-        for x in xrange(len(cm)):
-            for y in xrange(len(cm)):
+        for x in range(len(cm)):
+            for y in range(len(cm)):
                 ax.annotate(str("%.3f(%d)"%(cm[x][y], cm_[x][y])), xy=(y,x),
                             horizontalalignment='center',
                             verticalalignment='center',
@@ -216,11 +218,10 @@ class active_learning():
 
     def run_CV(self):
 
-        kf = KFold(len(self.label), n_folds=self.fold, shuffle=True)
+        kf = KFold(n_splits=self.fold, shuffle=True)
         p_acc = [] #pseudo self.label acc
 
-        for train, test in kf:
-
+        for train, test in kf.split(range(len(self.label))) :
             fn_test = self.fn[test]
             label_test = self.label[test]
 
@@ -267,7 +268,7 @@ class active_learning():
                 except Exception as e:
                     exc_type, exc_obj, exc_tb = sys.exc_info()
                     fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                    print exc_type, e.args, fname, 'on line ' + str(exc_tb.tb_lineno)
+                    print ( exc_type, e.args, fname, 'on line ' + str(exc_tb.tb_lineno) )
                     acc = np.nan
 
                 self.acc_sum[ctr-1].append(acc)
@@ -303,20 +304,19 @@ class active_learning():
                 acc = self.get_pred_acc(fn_test, label_test, self.p_idx, self.p_label)
                 self.acc_sum[rr].append(acc)
 
-            print '# of p label', len(self.p_label)
-            print cl_id
+            print ( '# of p label', len(self.p_label) )
+            print ( cl_id )
             if not self.p_label:
-                print 'p label acc', 0
+                print ( 'p label acc', 0 )
                 p_acc.append(0)
             else:
-                print 'p label acc', sum(self.label[self.p_idx]==self.p_label)/float(len(self.p_label))
+                print ( 'p label acc', sum(self.label[self.p_idx]==self.p_label)/float(len(self.p_label)) )
                 p_acc.append(sum(self.label[self.p_idx]==self.p_label)/float(len(self.p_label)))
-            print '-------------------------------------------------------------------------------------'
-
-        print 'class count of clf training ex:', ct(label_train)
+            print ( '-------------------------------------------------------------------------------------' )
+        print ( 'class count of clf training ex:', ct(label_train) )
         self.acc_sum = [i for i in self.acc_sum if i]
-        print 'average acc:', [np.nanmean(i) for i in self.acc_sum]
-        print 'average p label acc:', np.mean(p_acc)
+        print ( 'average acc:', [np.nanmean(i) for i in self.acc_sum] )
+        print ( 'average p label acc:', np.mean(p_acc) )
 
         #self.plot_confusion_matrix(label_test, fn_test)
 
@@ -326,7 +326,7 @@ if __name__ == "__main__":
     raw_pt = [i.strip().split('\\')[-1][:-5] for i in open('../../data/rice_pt').readlines()]
     tmp = np.genfromtxt('../../data/rice_hour', delimiter=',')
     label = tmp[:,-1]
-    print 'class count of true labels of all ex:\n', ct(label)
+    print ( 'class count of true labels of all ex:\n', ct(label) )
 
     mapping = {1:'co2',2:'humidity',4:'rmt',5:'status',6:'stpt',7:'flow',8:'HW sup',9:'HW ret',10:'CW sup',11:'CW ret',12:'SAT',13:'RAT',17:'MAT',18:'C enter',19:'C leave',21:'occu'}
 
